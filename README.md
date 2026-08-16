@@ -19,7 +19,7 @@ npm run build
 
 ## Deploy
 
-The site is deployed to [GitHub Pages](https://alberto826.github.io/TabFM/) from the `main` branch by `.github/workflows/deploy-pages.yml`.
+The site is deployed to [GitHub Pages](https://alberto826.github.io/ThePracticalActuary-TabFMs/) from the `main` branch by `.github/workflows/deploy-pages.yml`.
 
 The source-paper cards link to public arXiv or publisher records. The local PDF copies remain available in the workspace for development but are excluded from the public repository.
 
