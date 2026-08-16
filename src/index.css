@@ -1,0 +1,236 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'DM Sans', sans-serif;
+  --font-serif: 'Fraunces', serif;
+  --font-mono: 'DM Mono', monospace;
+}
+
+:root {
+  color: #1e2a35;
+  background: #f5f2ea;
+  font-family: 'DM Sans', sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+
+.slide-app {
+  display: flex;
+  height: 100vh;
+  min-height: 620px;
+  flex-direction: column;
+}
+
+.deck-header,
+.deck-footer {
+  flex: 0 0 auto;
+}
+
+.deck-main {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.slide-scroll {
+  min-height: 100%;
+  min-width: 0;
+}
+
+.slide-two-column {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1.04fr) minmax(390px, 0.96fr);
+  align-items: start;
+  gap: 3rem;
+}
+
+.slide-wide {
+  min-width: 0;
+}
+
+.slide-title {
+  max-width: 800px;
+  margin: 0;
+  font-family: 'Fraunces', serif;
+  font-size: 3.65rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.02;
+}
+
+.slide-title em {
+  color: #d64e3b;
+  font-style: normal;
+}
+
+.slide-lead {
+  max-width: 700px;
+  margin: 1.35rem 0 0;
+  color: #53606a;
+  font-size: 1.08rem;
+  line-height: 1.8;
+}
+
+.surface-panel {
+  min-width: 0;
+}
+
+.slide-two-column > *,
+.slide-wide > *,
+.surface-panel > * {
+  min-width: 0;
+}
+
+svg {
+  max-width: 100%;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 3px solid #f6c34a;
+  outline-offset: 3px;
+}
+
+.dot-grid {
+  background-image: radial-gradient(circle, rgba(30, 42, 53, 0.14) 1px, transparent 1px);
+  background-size: 18px 18px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 16%, black 80%, transparent);
+  mask-image: linear-gradient(90deg, transparent, black 16%, black 80%, transparent);
+}
+
+.section-band {
+  position: relative;
+  min-width: 0;
+}
+
+#start .grid > *,
+.section-band .grid > * {
+  min-width: 0;
+}
+
+.surface-panel {
+  border: 1px solid rgba(30, 42, 53, 0.12);
+  border-radius: 14px;
+}
+
+.range-input {
+  appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #4775b3 0%, #4775b3 50%, #d9d6cc 50%, #d9d6cc 100%);
+  accent-color: #4775b3;
+}
+
+.range-input::-webkit-slider-thumb {
+  width: 17px;
+  height: 17px;
+  appearance: none;
+  border: 2px solid #fffdf8;
+  border-radius: 50%;
+  background: #1e2a35;
+  box-shadow: 0 1px 5px rgba(30, 42, 53, 0.24);
+}
+
+.range-input::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #fffdf8;
+  border-radius: 50%;
+  background: #1e2a35;
+  box-shadow: 0 1px 5px rgba(30, 42, 53, 0.24);
+}
+
+.range-input.range-dark {
+  background: linear-gradient(90deg, #f6c34a 0%, #f6c34a 50%, rgba(255, 255, 255, 0.18) 50%, rgba(255, 255, 255, 0.18) 100%);
+  accent-color: #f6c34a;
+}
+
+.range-input.range-dark::-webkit-slider-thumb,
+.range-input.range-dark::-moz-range-thumb {
+  background: #f6c34a;
+}
+
+.katex-display {
+  margin: 0.8rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25rem 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+::selection {
+  color: #f5f2ea;
+  background: #1e2a35;
+}
+
+@media (max-width: 1023px) {
+  .slide-two-column {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2rem;
+  }
+
+  .slide-title {
+    font-size: 3rem;
+  }
+}
+
+@media (max-width: 639px) {
+  .slide-app {
+    min-height: 560px;
+  }
+
+  .slide-title {
+    font-size: 2.35rem;
+    line-height: 1.08;
+  }
+
+  .slide-lead {
+    font-size: 0.98rem;
+    line-height: 1.65;
+  }
+
+  .slide-two-column {
+    gap: 1.5rem;
+  }
+
+  .slide-frame {
+    padding-bottom: 2rem;
+  }
+}

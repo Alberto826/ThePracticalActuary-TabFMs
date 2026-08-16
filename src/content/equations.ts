@@ -1,0 +1,15 @@
+export const equations = {
+  llmNextToken: String.raw`p(\text{next token} \mid \text{prompt tokens})`,
+  tableNextLabel: String.raw`q_\theta(y_{\mathrm{query}} \mid x_{\mathrm{query}},\{(x_i,y_i)\}_{i=1}^{n})`,
+  heldOut: String.raw`\text{visible: }(x_{\mathrm{query}})\quad\text{hidden: }y_{\mathrm{query}}`,
+  posteriorPredictive: String.raw`p(y \mid x,D) \propto \int p(y \mid x,\phi)\,p(D \mid \phi)\,p(\phi)\,d\phi`,
+  pfnLoss: String.raw`\mathcal{L}_{\mathrm{PFN}} = \mathbb{E}_{D \sim p(D)}\left[-\log q_\theta(y_{\mathrm{test}} \mid x_{\mathrm{test}},D_{\mathrm{train}})\right]`,
+  scm: String.raw`z_i = f_i\left(z_{\mathrm{PA}_{\mathcal{G}}(i)},\epsilon_i\right)`,
+  attention: String.raw`\operatorname{Attention}(Q,K,V)=\operatorname{softmax}\left(\frac{QK^\top}{\sqrt{d}}\right)V`,
+  rowAttention: String.raw`H_{i,:}^{\mathrm{row}}=\operatorname{Attn}(h_{i,1},\ldots,h_{i,m})`,
+  columnAttention: String.raw`H_{:,j}^{\mathrm{col}}=\operatorname{Attn}(h_{1,j},\ldots,h_{n,j})`,
+  alternating: String.raw`H^{(l+1)}=\operatorname{RowAttn}(\operatorname{ColAttn}(H^{(l)}))`,
+  qassmax: String.raw`\tilde q_h=q_h\cdot \operatorname{MLP}_{\mathrm{base}}(\log n)\cdot\left(1+\tanh(\operatorname{MLP}_{\mathrm{gate}}(q_h))\right)`,
+  actuarialCost: String.raw`\mathbb{E}[\text{claim cost}] = \Pr(N>0) \times \mathbb{E}[S \mid N>0]`,
+  quantileLoss: String.raw`\rho_\alpha(u)=u\left(\alpha-\mathbf{1}_{u<0}\right)`,
+}

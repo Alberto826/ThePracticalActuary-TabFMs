@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.playwright-mcp/
+benchmark-journey-*.png
+table-sense-*.png
+papers/*.pdf
