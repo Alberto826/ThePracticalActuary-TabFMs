@@ -12,13 +12,11 @@ import {
   Eye,
   GitBranch,
   Layers3,
-  Lightbulb,
   LockKeyhole,
   Menu,
   Network,
   Pause,
   Play,
-  RefreshCcw,
   Table2,
   Target,
   X,
@@ -38,7 +36,6 @@ import {
 import type { TableRow } from './types'
 
 type SlideId = 'prompt' | 'prior' | 'attention' | 'architectures' | 'probability' | 'benchmarks' | 'evidence'
-type PriorTab = 'scm' | 'tree' | 'mixed'
 type AttentionPhase = 'column' | 'row' | 'alternating' | 'icl'
 type ProbabilityMode = 'classification' | 'regression'
 type ModelKey = 'TabPFN v1' | 'Nature / TabPFN v2' | 'TabPFN-2.5' | 'TabICL' | 'TabICLv2' | 'TabPFN-3'
@@ -123,30 +120,6 @@ const modelDetails: Record<ModelKey, { sourceId: string; color: string; headline
   },
 }
 
-const priorCopy: Record<PriorTab, { label: string; title: string; body: string; teaches: string; formula: string }> = {
-  scm: {
-    label: 'SCM / causal graph',
-    title: 'A story about how variables are generated',
-    body: 'A structural causal model is a directed acyclic graph plus a function at each node. In a synthetic task, the graph is sampled first, then values flow from parent nodes to child nodes with noise. The arrows describe the generator used for pretraining; they are not a discovered causal graph for your portfolio.',
-    teaches: 'Dependency structure, smooth or nonlinear relationships, and the idea that a target may be downstream of several features.',
-    formula: equations.scm,
-  },
-  tree: {
-    label: 'Tree-like generator',
-    title: 'A story made from splits and regions',
-    body: 'A tree-like generator creates outputs by splitting the feature space into regions. It can express thresholds, sharp edges, and interactions that look like boosted-tree decision rules. TabICL explicitly adds tree-based structural causal generators because trees remain strong inductive biases for tabular data.',
-    teaches: 'Axis-aligned thresholds, discontinuities, class imbalance, and interactions that are not well represented by only smooth neural functions.',
-    formula: String.raw`f(x)=\sum_{t=1}^{T} w_t\,\mathbf{1}\{x\in R_t\}`,
-  },
-  mixed: {
-    label: 'Mixed prior',
-    title: 'Several generator families, one training distribution',
-    body: 'A mixed prior is not a third model architecture. It is a recipe for sampling many kinds of synthetic tasks: graph functions, tree ensembles, Gaussian-process-like functions, linear or quadratic relationships, discretization, and products. The model sees a broad menu instead of overfitting to one story about tables.',
-    teaches: 'Robustness across smooth, jagged, categorical, heavy-tailed, and interacting relationships.',
-    formula: String.raw`p(D)=\sum_{k} \pi_k\,p_k(D),\qquad \sum_k\pi_k=1`,
-  },
-}
-
 const formatPercent = (value: number) => `${Math.round(value * 100)}%`
 const formatMoney = (value: number) => `$${Math.round(value).toLocaleString('en-US')}`
 
@@ -156,8 +129,6 @@ export default function SlideApp() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [contextSize, setContextSize] = useState(3)
   const [showHeldOutAnswer, setShowHeldOutAnswer] = useState(false)
-  const [priorTab, setPriorTab] = useState<PriorTab>('scm')
-  const [priorSeed, setPriorSeed] = useState(1)
   const [attentionPhase, setAttentionPhase] = useState<AttentionPhase>('column')
   const [attentionPlaying, setAttentionPlaying] = useState(false)
   const [selectedModel, setSelectedModel] = useState<ModelKey>('TabICL')
@@ -199,7 +170,7 @@ export default function SlideApp() {
         <AnimatePresence mode="wait">
           <motion.div key={activeSlide.id} className="slide-scroll" initial={{ opacity: 0, x: 22 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={{ duration: 0.28, ease: 'easeOut' }}>
             {activeSlide.id === 'prompt' && <PromptSlide rows={rows} contextSize={contextSize} setContextSize={setContextSize} probability={probability} showHeldOutAnswer={showHeldOutAnswer} setShowHeldOutAnswer={setShowHeldOutAnswer} goToSlide={goToSlide} />}
-            {activeSlide.id === 'prior' && <PriorSlide tab={priorTab} setTab={setPriorTab} seed={priorSeed} setSeed={setPriorSeed} />}
+            {activeSlide.id === 'prior' && <PriorSlide />}
             {activeSlide.id === 'attention' && <AttentionSlide phase={attentionPhase} setPhase={setAttentionPhase} playing={attentionPlaying} setPlaying={setAttentionPlaying} />}
             {activeSlide.id === 'architectures' && <ArchitectureSlide model={selectedModel} setModel={setSelectedModel} />}
             {activeSlide.id === 'probability' && <ProbabilitySlide rows={rows} contextSize={contextSize} mode={probabilityMode} setMode={setProbabilityMode} showHeldOutAnswer={showHeldOutAnswer} setShowHeldOutAnswer={setShowHeldOutAnswer} />}
@@ -241,18 +212,41 @@ function PromptSlide({ rows, contextSize, setContextSize, probability, showHeldO
 }
 
 function PromptWindow({ rows, contextSize, setContextSize, probability, showHeldOutAnswer, setShowHeldOutAnswer }: { rows: TableRow[]; contextSize: number; setContextSize: (value: number) => void; probability: number; showHeldOutAnswer: boolean; setShowHeldOutAnswer: (value: boolean) => void }) {
-  return <div className="surface-panel bg-[#fffdf8] shadow-[0_20px_60px_rgba(30,42,53,0.1)]"><div className="flex items-start justify-between gap-4 border-b border-[#1e2a35]/10 px-5 py-5"><div><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#d64e3b]">one prompt / two jobs</p><p className="mt-1 text-lg font-semibold">Will policy Q-09 claim?</p></div><span className="rounded-full bg-[#e4edf8] px-3 py-1.5 font-mono text-[10px] font-semibold text-[#3869a8]">query row</span></div><div className="overflow-x-auto px-5 py-4"><table className="min-w-[470px] w-full border-collapse text-left text-[11px]"><thead><tr className="border-b border-[#1e2a35]/10 font-mono text-[9px] uppercase tracking-[0.08em] text-[#8a9295]"><th className="pb-3 pr-3 font-medium">role</th><th className="pb-3 pr-3 font-medium">driver age</th><th className="pb-3 pr-3 font-medium">vehicle</th><th className="pb-3 pr-3 font-medium">miles</th><th className="pb-3 font-medium">label</th></tr></thead><tbody>{rows.slice(0, 6).map((row, index) => <tr key={row.id} className={`border-b border-[#1e2a35]/7 ${index < contextSize ? 'text-[#1e2a35]' : 'text-[#abb1b1]'}`}><td className="py-3 pr-3"><span className={`rounded-full px-2 py-1 font-mono text-[9px] ${index < contextSize ? 'bg-[#f8edc9] text-[#a36b13]' : 'bg-[#f0eee7] text-[#9aa0a0]'}`}>{index < contextSize ? 'context' : 'held out'}</span></td><td className="py-3 pr-3 font-mono">{row.driverAge}</td><td className="py-3 pr-3 font-mono">{row.vehicleAge}y</td><td className="py-3 pr-3 font-mono">{row.annualMiles}k</td><td className={`py-3 font-mono font-semibold ${index < contextSize ? row.claim ? 'text-[#d64e3b]' : 'text-[#2f8175]' : 'text-[#abb1b1]'}`}>{index < contextSize ? row.claim ? 'yes' : 'no' : '—'}</td></tr>)}<tr className="bg-[#e4edf8] text-[#3869a8]"><td className="py-3 pr-3"><span className="rounded-full bg-[#4775b3] px-2 py-1 font-mono text-[9px] font-semibold text-white">query</span></td><td className="py-3 pr-3 font-mono">39</td><td className="py-3 pr-3 font-mono">8y</td><td className="py-3 pr-3 font-mono">15k</td><td className="py-3 font-mono font-semibold">{showHeldOutAnswer ? 'yes' : '?'}</td></tr></tbody></table></div><div className="grid gap-5 border-t border-[#1e2a35]/10 px-5 py-5 sm:grid-cols-[1fr_170px] sm:items-end"><Slider label="context rows" value={contextSize} min={1} max={6} step={1} onChange={setContextSize} suffix={`${contextSize} rows`} hint="These labels are visible to the model." /><div><div className="flex items-center justify-between font-mono text-[9px] uppercase tracking-[0.08em] text-[#74808a]"><span>output: P(claim)</span><span className="text-[#d64e3b]">{formatPercent(probability)}</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-[#e8e5dc]"><motion.div className="h-full rounded-full bg-[#d95b46]" animate={{ width: `${probability * 100}%` }} /></div><button onClick={() => setShowHeldOutAnswer(!showHeldOutAnswer)} className="mt-3 inline-flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.08em] text-[#3869a8] hover:underline"><LockKeyhole size={11} /> {showHeldOutAnswer ? 'hide label' : 'reveal held-out label'}</button></div></div><div className="border-t border-[#1e2a35]/10 bg-[#f8f6ef] px-5 py-4"><p className="text-xs leading-5 text-[#53606a]"><span className="font-semibold text-[#1e2a35]">Held out means hidden on purpose.</span> We hide the query label so the model has to predict it. During pretraining, the hidden label supplies the loss signal; during evaluation, it lets us check whether the probability was useful without leaking the answer.</p></div></div>
+  return <div className="surface-panel bg-[#fffdf8] shadow-[0_20px_60px_rgba(30,42,53,0.1)]"><div className="flex items-start justify-between gap-4 border-b border-[#1e2a35]/10 px-5 py-5"><div><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#d64e3b]">one prompt</p><p className="mt-1 text-lg font-semibold">Will query policy claim?</p></div><span className="rounded-full bg-[#e4edf8] px-3 py-1.5 font-mono text-[10px] font-semibold text-[#3869a8]">query row</span></div><div className="overflow-x-auto px-5 py-4"><table className="min-w-[470px] w-full border-collapse text-left text-[11px]"><thead><tr className="border-b border-[#1e2a35]/10 font-mono text-[9px] uppercase tracking-[0.08em] text-[#8a9295]"><th className="pb-3 pr-3 font-medium">role</th><th className="pb-3 pr-3 font-medium">driver age</th><th className="pb-3 pr-3 font-medium">vehicle</th><th className="pb-3 pr-3 font-medium">miles</th><th className="pb-3 font-medium">label</th></tr></thead><tbody>{rows.slice(0, 6).map((row, index) => <tr key={row.id} className={`border-b border-[#1e2a35]/7 ${index < contextSize ? 'text-[#1e2a35]' : 'text-[#abb1b1]'}`}><td className="py-3 pr-3"><span className={`rounded-full px-2 py-1 font-mono text-[9px] ${index < contextSize ? 'bg-[#f8edc9] text-[#a36b13]' : 'bg-[#f0eee7] text-[#9aa0a0]'}`}>{index < contextSize ? 'context' : 'held out'}</span></td><td className="py-3 pr-3 font-mono">{row.driverAge}</td><td className="py-3 pr-3 font-mono">{row.vehicleAge}y</td><td className="py-3 pr-3 font-mono">{row.annualMiles}k</td><td className={`py-3 font-mono font-semibold ${index < contextSize ? row.claim ? 'text-[#d64e3b]' : 'text-[#2f8175]' : 'text-[#abb1b1]'}`}>{index < contextSize ? row.claim ? 'yes' : 'no' : '—'}</td></tr>)}<tr className="bg-[#e4edf8] text-[#3869a8]"><td className="py-3 pr-3"><span className="rounded-full bg-[#4775b3] px-2 py-1 font-mono text-[9px] font-semibold text-white">query</span></td><td className="py-3 pr-3 font-mono">39</td><td className="py-3 pr-3 font-mono">8y</td><td className="py-3 pr-3 font-mono">15k</td><td className="py-3 font-mono font-semibold">{showHeldOutAnswer ? 'yes' : '?'}</td></tr></tbody></table></div><div className="grid gap-5 border-t border-[#1e2a35]/10 px-5 py-5 sm:grid-cols-[1fr_170px] sm:items-end"><Slider label="context rows" value={contextSize} min={1} max={6} step={1} onChange={setContextSize} suffix={`${contextSize} rows`} hint="These labels are visible to the model." /><div><div className="flex items-center justify-between font-mono text-[9px] uppercase tracking-[0.08em] text-[#74808a]"><span>output: P(claim)</span><span className="text-[#d64e3b]">{formatPercent(probability)}</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-[#e8e5dc]"><motion.div className="h-full rounded-full bg-[#d95b46]" animate={{ width: `${probability * 100}%` }} /></div><button onClick={() => setShowHeldOutAnswer(!showHeldOutAnswer)} className="mt-3 inline-flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.08em] text-[#3869a8] hover:underline"><LockKeyhole size={11} /> {showHeldOutAnswer ? 'hide label' : 'reveal held-out label'}</button></div></div><div className="border-t border-[#1e2a35]/10 bg-[#f8f6ef] px-5 py-4"><p className="text-xs leading-5 text-[#53606a]"><span className="font-semibold text-[#1e2a35]">Held out means hidden on purpose.</span> We hide the query label so the model has to predict it. During pretraining, the hidden label supplies the loss signal; during evaluation, it lets us check whether the probability was useful without leaking the answer.</p></div></div>
 }
 
-function PriorSlide({ tab, setTab, seed, setSeed }: { tab: PriorTab; setTab: (value: PriorTab) => void; seed: number; setSeed: (value: number) => void }) {
-  const copy = priorCopy[tab]
-  return <SlideFrame number="02" kicker="The prior / what was learned before your table" tone="yellow"><div className="slide-two-column"><div><h2 className="slide-title">Before the model sees your table, it has seen <em>many possible tables.</em></h2><p className="slide-lead">A prior is the synthetic universe used to teach the network what relationships are plausible. Think of it as a training generator, not as a single fitted curve and not as a causal conclusion about your business.</p><div className="flex flex-wrap gap-2">{(['scm', 'tree', 'mixed'] as PriorTab[]).map((option) => <button key={option} onClick={() => setTab(option)} className={`rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${tab === option ? 'border-[#c78924] bg-[#f8edc9] text-[#8b661c]' : 'border-[#1e2a35]/12 bg-[#fffdf8] text-[#74808a] hover:text-[#1e2a35]'}`}>{priorCopy[option].label}</button>)}</div><div className="mt-6 rounded-[14px] border border-[#e2c679] bg-[#f8edc9] p-5"><div className="flex items-start gap-3"><Lightbulb size={18} className="mt-0.5 shrink-0 text-[#a36b13]" /><div><p className="text-sm font-semibold text-[#7e5a18]">{copy.title}</p><p className="mt-2 text-sm leading-6 text-[#806b3c]">{copy.body}</p></div></div></div><div className="mt-5 overflow-x-auto rounded-[14px] border border-[#1e2a35]/10 bg-[#fffdf8] p-5"><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#a36b13]">generator shorthand</p><BlockMath math={copy.formula} /><p className="mt-2 text-xs leading-5 text-[#74808a]"><span className="font-semibold text-[#1e2a35]">What it teaches:</span> {copy.teaches}</p></div></div><div className="surface-panel bg-[#fffdf8] p-5"><div className="flex items-start justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#74808a]">synthetic generator / universe {seed}</p><p className="mt-1 text-lg font-semibold">A generator you can read</p></div><button onClick={() => setSeed(seed + 1)} className="inline-flex items-center gap-2 rounded-full border border-[#1e2a35]/12 px-3 py-2 text-xs font-semibold text-[#53606a] hover:bg-[#f5f2ea]"><RefreshCcw size={14} /> new universe</button></div><PriorIllustration tab={tab} seed={seed} /><div className="mt-5 grid gap-3 sm:grid-cols-3"><SmallDefinition title="sample" text="Draw a mechanism" /><SmallDefinition title="generate" text="Draw rows from it" /><SmallDefinition title="fit" text="Learn to infer" /></div><div className="mt-5 rounded-[10px] bg-[#f5f2ea] p-4 text-xs leading-5 text-[#53606a]">The loss compares the model&apos;s predicted distribution with the known hidden labels from each synthetic task. That is how the network learns an algorithm instead of memorizing one table.</div></div></div></SlideFrame>
-}
-
-function PriorIllustration({ tab, seed }: { tab: PriorTab; seed: number }) {
-  if (tab === 'scm') return <svg className="mt-7 h-auto w-full" viewBox="0 0 520 240" role="img" aria-label="Structural causal model diagram"><defs><marker id="scm-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4775b3" /></marker></defs><rect x="0" y="0" width="520" height="240" rx="12" fill="#e4edf8" /><text x="26" y="30" fill="#3869a8" fontSize="11" fontFamily="DM Mono">one possible dependency story</text><line x1="124" y1="98" x2="234" y2="92" stroke="#4775b3" strokeWidth="2" markerEnd="url(#scm-arrow)" /><line x1="124" y1="161" x2="234" y2="108" stroke="#4775b3" strokeWidth="2" markerEnd="url(#scm-arrow)" /><line x1="322" y1="100" x2="414" y2="128" stroke="#4775b3" strokeWidth="2" markerEnd="url(#scm-arrow)" /><line x1="322" y1="100" x2="414" y2="178" stroke="#4775b3" strokeWidth="2" markerEnd="url(#scm-arrow)" /><GraphNode x="85" y="98" label="driver age" sub="z1" color="#f8edc9" /><GraphNode x="85" y="161" label="vehicle age" sub="z2" color="#f8edc9" /><GraphNode x="280" y="100" label="risk score" sub="z3 = f(z1,z2)+ε" color="#dfeee7" /><GraphNode x="448" y="128" label="claim?" sub="y" color="#fbe4dc" /><GraphNode x="448" y="178" label="severity" sub="s | claim" color="#fbe4dc" /><text x="25" y="218" fill="#53606a" fontSize="10">Arrows are part of a synthetic generator, not evidence of causality in your data.</text></svg>
-  if (tab === 'tree') return <svg className="mt-7 h-auto w-full" viewBox="0 0 520 240" role="img" aria-label="Tree-like prior diagram"><rect x="0" y="0" width="520" height="240" rx="12" fill="#f8edc9" /><text x="26" y="30" fill="#8b661c" fontSize="11" fontFamily="DM Mono">axis-aligned regions</text><line x1="260" y1="66" x2="155" y2="118" stroke="#c78924" strokeWidth="2" /><line x1="260" y1="66" x2="365" y2="118" stroke="#c78924" strokeWidth="2" /><line x1="155" y1="145" x2="94" y2="181" stroke="#c78924" strokeWidth="2" /><line x1="155" y1="145" x2="214" y2="181" stroke="#c78924" strokeWidth="2" /><line x1="365" y1="145" x2="304" y2="181" stroke="#c78924" strokeWidth="2" /><line x1="365" y1="145" x2="424" y2="181" stroke="#c78924" strokeWidth="2" /><TreeNode x="260" y="66" label="miles > 12?" color="#1e2a35" /><TreeNode x="155" y="145" label="vehicle > 8?" color="#1e2a35" /><TreeNode x="365" y="145" label="region = urban?" color="#1e2a35" /><Leaf x="94" y="194" label="low" /><Leaf x="214" y="194" label="medium" /><Leaf x="304" y="194" label="medium" /><Leaf x="424" y="194" label="high" /><text x="25" y="224" fill="#806b3c" fontSize="10">The generator teaches thresholds and sharp interactions.</text></svg>
-  return <svg className="mt-7 h-auto w-full" viewBox="0 0 520 240" role="img" aria-label="Mixed prior diagram"><defs><marker id={`mix-arrow-${seed}`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#1e2a35" /></marker></defs><rect x="0" y="0" width="520" height="240" rx="12" fill="#dfeee7" /><text x="26" y="30" fill="#2f8175" fontSize="11" fontFamily="DM Mono">mixture over task generators</text><MiniGenerator x="92" y="92" label="SCM" sub="dependencies" color="#e4edf8" /><MiniGenerator x="92" y="156" label="Tree" sub="thresholds" color="#f8edc9" /><MiniGenerator x="260" y="124" label="GP / linear" sub="smoothness" color="#fbe4dc" /><line x1="145" y1="92" x2="360" y2="113" stroke="#1e2a35" strokeWidth="1.7" markerEnd={`url(#mix-arrow-${seed})`} /><line x1="145" y1="156" x2="360" y2="133" stroke="#1e2a35" strokeWidth="1.7" markerEnd={`url(#mix-arrow-${seed})`} /><line x1="313" y1="124" x2="360" y2="124" stroke="#1e2a35" strokeWidth="1.7" markerEnd={`url(#mix-arrow-${seed})`} /><GraphNode x="427" y="124" label="synthetic table" sub="one draw" color="#fffdf8" /><text x="25" y="218" fill="#53606a" fontSize="10">Different stories create a broader training distribution.</text></svg>
+function PriorSlide() {
+  return (
+    <SlideFrame number="02" kicker="The prior / one pre-training episode" tone="yellow">
+      <div className="slide-two-column">
+        <div>
+          <h2 className="slide-title">Before the model sees a table, the simulator makes a <em>tiny world.</em></h2>
+          <p className="slide-lead">Pre-training repeats one simple recipe millions of times: choose a hidden rulebook, generate a small table, hide one answer, and penalize the model for assigning it too little probability.</p>
+          <div className="mt-5 border-l-2 border-[#c78924] pl-5 text-sm leading-6 text-[#53606a]"><span className="font-semibold text-[#8b661c]">The key distinction:</span> the distributions describe how the simulator behaves across many episodes. A single episode contributes ordinary numbers to the model&apos;s input.</div>
+          <div className="mt-5 rounded-[14px] border border-[#e2c679] bg-[#f8edc9] p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3"><span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#a36b13]">1 / p(phi)</span><span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[#8b661c]">sample one hidden rulebook</span></div>
+            <p className="mt-4 text-sm leading-6 text-[#806b3c]"><span className="font-semibold text-[#7e5a18]">p(phi)</span> is the simulator&apos;s distribution over possible rulebooks. For this one episode, it happens to draw a simple causal housing model:</p>
+            <div className="mt-4 grid gap-2 rounded-[10px] bg-[#fff7d9] px-4 py-3 text-[#1e2a35]"><BlockMath math={String.raw`x^{(2)}\sim\operatorname{Poisson}(3)`} /><BlockMath math={String.raw`x^{(1)}=500x^{(2)}+\epsilon_x`} /><BlockMath math={String.raw`y=100x^{(1)}+20{,}000x^{(2)}+\epsilon_y`} /></div>
+            <p className="mt-4 text-xs leading-5 text-[#7e5a18]"><span className="font-semibold">What gets passed forward?</span> One concrete draw, phi_1: these formulas plus the sampled noise values. The probability distribution p(phi) itself is not a column in the table.</p>
+          </div>
+        </div>
+        <div className="grid gap-4">
+          <div className="surface-panel overflow-hidden bg-[#fffdf8] p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#3869a8]">2 features / 3 training rows + query</p><p className="mt-1 text-lg font-semibold">One generated episode</p></div><span className="rounded-full bg-[#e4edf8] px-3 py-1.5 font-mono text-[10px] font-semibold text-[#3869a8]">D + query</span></div>
+            <p className="mt-4 text-sm leading-6 text-[#53606a]"><span className="font-semibold text-[#3869a8]">p(x)</span> is the distribution used to draw feature rows. Here the simulator draws four houses from the rulebook: three become context D, and one becomes the query.</p>
+            <div className="mt-5 overflow-x-auto"><table className="min-w-[500px] w-full border-collapse text-left text-[11px]"><thead><tr className="border-b border-[#1e2a35]/10 font-mono text-[9px] uppercase tracking-[0.08em] text-[#8a9295]"><th className="pb-3 pr-3 font-medium">row</th><th className="pb-3 pr-3 font-medium">feature 1 / sq ft</th><th className="pb-3 pr-3 font-medium">feature 2 / beds</th><th className="pb-3 font-medium">target / price</th></tr></thead><tbody><tr className="border-b border-[#1e2a35]/7"><td className="py-3 pr-3 font-mono font-semibold text-[#2f8175]">D1</td><td className="py-3 pr-3 font-mono">1,050</td><td className="py-3 pr-3 font-mono">2</td><td className="py-3 font-mono">$143k</td></tr><tr className="border-b border-[#1e2a35]/7"><td className="py-3 pr-3 font-mono font-semibold text-[#2f8175]">D2</td><td className="py-3 pr-3 font-mono">1,480</td><td className="py-3 pr-3 font-mono">3</td><td className="py-3 font-mono">$209k</td></tr><tr className="border-b border-[#1e2a35]/7"><td className="py-3 pr-3 font-mono font-semibold text-[#2f8175]">D3</td><td className="py-3 pr-3 font-mono">2,020</td><td className="py-3 pr-3 font-mono">4</td><td className="py-3 font-mono">$281.5k</td></tr><tr className="bg-[#e4edf8] text-[#3869a8]"><td className="py-3 pr-3 font-mono font-semibold">Q</td><td className="py-3 pr-3 font-mono">1,510</td><td className="py-3 pr-3 font-mono">3</td><td className="py-3 font-mono font-semibold">hidden</td></tr></tbody></table></div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2"><div className="rounded-[10px] bg-[#dfeee7] p-3"><p className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#2f8175]">context D</p><p className="mt-1 text-xs font-semibold">the first 3 rows</p></div><div className="rounded-[10px] bg-[#e4edf8] p-3"><p className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#3869a8]">query x_test</p><p className="mt-1 font-mono text-xs font-semibold">(1,510, 3)</p></div></div>
+            <p className="mt-4 text-xs leading-5 text-[#74808a]">The simulator knows the hidden answer too: y_test = $212k. The model receives only the query features, not that price.</p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-[14px] border border-[#a8d2c3] bg-[#dfeee7] p-5"><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#2f8175]">3 / p(y | x,D)</p><p className="mt-3 text-sm leading-6 text-[#53606a]"><span className="font-semibold text-[#2f8175]">p(y | x,D)</span> asks what prices are plausible after seeing D. The model outputs an approximation q_theta.</p><div className="mt-4 grid grid-cols-3 gap-1.5"><div className="rounded-[8px] bg-[#fbe4dc] p-2 text-center"><p className="font-mono text-[8px] text-[#8a4d43]">low</p><p className="mt-1 font-serif text-lg text-[#d64e3b]">3.5%</p></div><div className="rounded-[8px] bg-[#f8edc9] p-2 text-center"><p className="font-mono text-[8px] text-[#8b661c]">medium</p><p className="mt-1 font-serif text-lg text-[#a36b13]">94.2%</p></div><div className="rounded-[8px] bg-[#e4edf8] p-2 text-center"><p className="font-mono text-[8px] text-[#3869a8]">high</p><p className="mt-1 font-serif text-lg text-[#3869a8]">2.3%</p></div></div><div className="mt-4 overflow-x-auto rounded-[8px] bg-[#fffdf8] px-3 py-2"><BlockMath math={String.raw`q_\theta(y\mid x,D)=[0.035,\ 0.942,\ 0.023]`} /></div></div>
+            <div className="rounded-[14px] border border-[#efb2a2] bg-[#fbe4dc] p-5"><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#d64e3b]">4 / loss on this sample</p><p className="mt-3 text-sm leading-6 text-[#8a4d43]">$212k is in the middle bin, so y = [0, 1, 0]. Cross-entropy checks the probability assigned to that bin.</p><div className="mt-4 overflow-x-auto rounded-[8px] bg-[#fffdf8] px-3 py-2"><BlockMath math={String.raw`\mathcal{L}_{\mathrm{CE}}=-\sum_{c=0}^{2}y_c\log\hat y_c`} /><BlockMath math={String.raw`=-\left(0\log 0.035+1\log 0.942+0\log 0.023\right)=-\log(0.942)\approx 0.060`} /></div><p className="mt-3 font-mono text-[10px] font-semibold text-[#7b3328]">bad guess: -log(0.05) = 2.996</p></div>
+          </div>
+        </div>
+      </div>
+      <div className="mt-5 border-t border-[#1e2a35]/10 pt-5 text-sm leading-6 text-[#53606a]"><span className="font-semibold text-[#8b661c]">In one sentence:</span> p(phi) chooses the hidden world, p(x) supplies the rows, and p(y | x,D) is the distribution the model learns to predict for the held-out row. The distributions are not extra input columns; repeated sampled tables and their losses carve the pattern into the model&apos;s weights.</div>
+    </SlideFrame>
+  )
 }
 
 function AttentionSlide({ phase, setPhase, playing, setPlaying }: { phase: AttentionPhase; setPhase: (value: AttentionPhase) => void; playing: boolean; setPlaying: (value: boolean) => void }) {
@@ -488,34 +482,6 @@ function AnalogyCard({ icon, title, formula, text, tone }: { icon: ReactNode; ti
 
 function Slider({ label, value, min, max, step, onChange, suffix, hint }: { label: string; value: number; min: number; max: number; step: number; onChange: (value: number) => void; suffix: string; hint?: string }) {
   return <label className="block"><span className="flex items-center justify-between gap-3 text-xs font-semibold text-[#53606a]"><span>{label}</span><output className="font-mono text-[10px] text-[#1e2a35]">{suffix}</output></span><input aria-label={label} className="range-input mt-3 w-full" type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} /><span className="mt-2 block text-[10px] leading-4 text-[#8a9295]">{hint}</span></label>
-}
-
-function SmallDefinition({ title, text }: { title: string; text: string }) {
-  return <div className="rounded-[10px] border border-[#1e2a35]/10 bg-[#f5f2ea] p-3"><p className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#a36b13]">{title}</p><p className="mt-2 text-xs font-semibold text-[#53606a]">{text}</p></div>
-}
-
-function GraphNode({ x, y, label, sub, color }: { x: number | string; y: number | string; label: string; sub: string; color: string }) {
-  const xPosition = Number(x)
-  const yPosition = Number(y)
-  return <g><rect x={xPosition - 45} y={yPosition - 23} width="90" height="46" rx="9" fill={color} stroke="#1e2a35" strokeOpacity="0.14" /><text x={xPosition} y={yPosition - 3} textAnchor="middle" fill="#1e2a35" fontSize="10" fontWeight="600">{label}</text><text x={xPosition} y={yPosition + 12} textAnchor="middle" fill="#53606a" fontSize="8" fontFamily="DM Mono">{sub}</text></g>
-}
-
-function TreeNode({ x, y, label, color }: { x: number | string; y: number | string; label: string; color: string }) {
-  const xPosition = Number(x)
-  const yPosition = Number(y)
-  return <g><rect x={xPosition - 54} y={yPosition - 21} width="108" height="42" rx="8" fill="#fffdf8" stroke="#c78924" strokeWidth="1.5" /><text x={xPosition} y={yPosition + 4} textAnchor="middle" fill={color} fontSize="10" fontWeight="600">{label}</text></g>
-}
-
-function Leaf({ x, y, label }: { x: number | string; y: number | string; label: string }) {
-  const xPosition = Number(x)
-  const yPosition = Number(y)
-  return <g><rect x={xPosition - 35} y={yPosition - 17} width="70" height="34" rx="17" fill="#d95b46" /><text x={xPosition} y={yPosition + 4} textAnchor="middle" fill="#fffdf8" fontSize="10" fontWeight="600">{label}</text></g>
-}
-
-function MiniGenerator({ x, y, label, sub, color }: { x: number | string; y: number | string; label: string; sub: string; color: string }) {
-  const xPosition = Number(x)
-  const yPosition = Number(y)
-  return <g><rect x={xPosition - 53} y={yPosition - 24} width="106" height="48" rx="10" fill={color} stroke="#1e2a35" strokeOpacity="0.12" /><text x={xPosition} y={yPosition - 3} textAnchor="middle" fill="#1e2a35" fontSize="11" fontWeight="600">{label}</text><text x={xPosition} y={yPosition + 13} textAnchor="middle" fill="#53606a" fontSize="8" fontFamily="DM Mono">{sub}</text></g>
 }
 
 function DetailBox({ label, value }: { label: string; value: string }) {
