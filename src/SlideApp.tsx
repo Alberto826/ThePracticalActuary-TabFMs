@@ -1,127 +1,34 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { BlockMath } from 'react-katex'
-import { scaleLinear } from 'd3-scale'
+import { useEffect, useState } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
-  BarChart3,
-  BookOpen,
-  BrainCircuit,
-  Check,
-  ExternalLink,
-  Eye,
-  GitBranch,
-  Layers3,
-  LockKeyhole,
   Menu,
-  Network,
-  Pause,
-  Play,
   Table2,
-  Target,
   X,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { benchmarkJourney, benchmarkNotes, tabArenaSnapshot, type BenchmarkRow, type BenchmarkEra } from './content/benchmarks'
-import { equations } from './content/equations'
-import { modelMatrix, type ModelComparison } from './content/modelMatrix'
-import { papers } from './content/papers'
-import {
-  attentionForQuery,
-  heroProbability,
-  makeTableRows,
-  severityQuantiles,
-  targetProbability,
-} from './lib/simulations'
-import type { TableRow } from './types'
+import { heroProbability, makeTableRows } from './lib/simulations'
+import { ArchitectureSlide, type ModelKey } from './slides/ArchitectureSlide'
+import { AttentionSlide, type AttentionPhase } from './slides/AttentionSlide'
+import { BenchmarkJourneySlide } from './slides/BenchmarkJourneySlide'
+import { EvidenceSlide } from './slides/EvidenceSlide'
+import { ProbabilitySlide, type ProbabilityMode } from './slides/ProbabilitySlide'
+import { PosteriorPredictiveSlide } from './slides/PosteriorPredictiveSlide'
+import { PriorSlide } from './slides/PriorSlide'
+import { PromptSlide } from './slides/PromptSlide'
 
-type SlideId = 'prompt' | 'prior' | 'attention' | 'architectures' | 'probability' | 'benchmarks' | 'evidence'
-type AttentionPhase = 'column' | 'row' | 'alternating' | 'icl'
-type ProbabilityMode = 'classification' | 'regression'
-type ModelKey = 'TabPFN v1' | 'Nature / TabPFN v2' | 'TabPFN-2.5' | 'TabICL' | 'TabICLv2' | 'TabPFN-3'
-type BenchmarkKey = 'tabArena' | 'talent' | 'openMl'
+type SlideId = 'prompt' | 'ppd' | 'prior' | 'attention' | 'architectures' | 'probability' | 'benchmarks' | 'evidence'
 
 const slides: { id: SlideId; number: string; label: string; title: string }[] = [
   { id: 'benchmarks', number: '01', label: 'The journey', title: 'From GLMs to tabular foundation models' },
   { id: 'prompt', number: '02', label: 'The prompt', title: 'A table can be a prompt' },
-  { id: 'prior', number: '03', label: 'The prior', title: 'Before the model sees your table' },
-  { id: 'attention', number: '04', label: 'In context', title: 'How attention turns rows into a prediction' },
-  { id: 'architectures', number: '05', label: 'Architectures', title: 'The evolution of the table reader' },
-  { id: 'probability', number: '06', label: 'Probability', title: 'The output is a distribution' },
-  { id: 'evidence', number: '07', label: 'Evidence', title: 'Compare the model families' },
+  { id: 'ppd', number: '03', label: 'Posterior predictive', title: 'The distribution PFNs learn to approximate' },
+  { id: 'prior', number: '04', label: 'The prior', title: 'Before the model sees your table' },
+  { id: 'attention', number: '05', label: 'In context', title: 'How attention turns rows into a prediction' },
+  { id: 'architectures', number: '06', label: 'Architectures', title: 'The evolution of the table reader' },
+  { id: 'probability', number: '07', label: 'Probability', title: 'The output is a distribution' },
+  { id: 'evidence', number: '08', label: 'Evidence', title: 'Compare the model families' },
 ]
-
-const modelDetails: Record<ModelKey, { sourceId: string; color: string; headline: string; stages: string[]; attention: string; prior: string; output: string; innovation: string[]; caveat: string }> = {
-  'TabPFN v1': {
-    sourceId: 'tabpfn-v1',
-    color: '#d95b46',
-    headline: 'The original idea: make rows the tokens and learn the learning algorithm.',
-    stages: ['row encoder', 'train rows self-attend', 'query rows cross-attend to train', 'class probabilities'],
-    attention: 'Row-token self-attention. The test rows are masked from one another and can only read the labeled context.',
-    prior: 'A mixture of structural causal model and Bayesian neural network generators, biased toward simple mechanisms.',
-    output: 'Classification probabilities for up to 10 classes in the validated regime.',
-    innovation: ['Turns offline synthetic task training into a reusable prediction algorithm.', 'Introduces a table-native form of in-context learning without gradient updates at inference.', 'Shows a Bayesian-style posterior predictive can be approximated by a Transformer.'],
-    caveat: 'Designed for small, clean, numerical tables; categorical values, missingness, irrelevant features, and long sequences were known limitations.',
-  },
-  'Nature / TabPFN v2': {
-    sourceId: 'tabpfn-nature',
-    color: '#c78924',
-    headline: 'The practical successor moves from whole-row tokens toward cell-aware representations.',
-    stages: ['group cells', 'feature / column attention', 'row / sample attention', 'classification or regression head'],
-    attention: 'Alternating attention lets representations mix information down columns and across features within rows.',
-    prior: 'A richer synthetic prior and preprocessing pipeline designed for heterogeneous tabular data.',
-    output: 'Classification and regression predictions, including predictive distributions in the broader PFN framing.',
-    innovation: ['Extends the validated data regime toward 10,000 samples and mixed feature types.', 'Introduces a practical foundation for fine-tuning, density estimation, generation, and embeddings.', 'Demonstrates the speed and accuracy claim in a peer-reviewed Nature article.'],
-    caveat: 'The attention pattern is expressive but expensive because it keeps a cell-level representation while rows and features interact.',
-  },
-  'TabPFN-2.5': {
-    sourceId: 'tabpfn-2-5',
-    color: '#d95b46',
-    headline: 'The same alternating design, pushed with deeper networks, grouped features, and deployment paths.',
-    stages: ['feature groups of 3', '18 / 24 Transformer layers', '64 learned thinking rows', 'ICL or distilled MLP / tree'],
-    attention: 'Alternating feature-wise and sample-wise attention over grouped cell tokens; training and test context are separated by masks and caching.',
-    prior: 'Purely synthetic pretraining with broader distributions; an optional Real-TabPFN variant continues pretraining on deduplicated real data.',
-    output: 'Classification probabilities or a binned regression distribution; decision threshold and temperature calibration are available as post-processing.',
-    innovation: ['Increases feature group size from 2 to 3 to reduce token count.', 'Uses deeper classifiers and regression models plus learned thinking rows inspired by extra computation tokens.', 'Adds a distillation engine that turns a context-dependent model into a dataset-specific MLP or tree ensemble.'],
-    caveat: 'The 50,000-row figure is the design target; report benchmarks also include larger tables, with comparisons that must retain tuning and fine-tuning labels.',
-  },
-  TabICL: {
-    sourceId: 'tabicl-v1',
-    color: '#3e8d7e',
-    headline: 'A deliberate split: understand columns, compress rows, then perform ICL over the compressed table.',
-    stages: ['TFcol: distribution-aware column embedding', 'TFrow: feature interaction + 4 CLS tokens', 'TFicl: row-level in-context learning', 'class probabilities'],
-    attention: 'Induced column attention captures distributional statistics; row attention captures feature interactions; final ICL operates on fixed-width row vectors.',
-    prior: 'SCM generators enriched with tree-based SCMs and more varied activation functions; a curriculum grows synthetic tables from 1K to 60K rows.',
-    output: 'Classification; hierarchical decomposition extends beyond the <=10-class pretraining head.',
-    innovation: ['Uses a Set Transformer to make a column aware of its own empirical distribution.', 'Collapses the feature dimension before the expensive dataset-wise ICL stage.', 'Demonstrates ICL on large tables, including 55 datasets above 10K rows in the TALENT analysis.'],
-    caveat: 'The released paper is classification-focused; the authors explicitly note that inference remains costly and benchmark comparisons inherit TALENT protocol choices.',
-  },
-  TabICLv2: {
-    sourceId: 'tabicl-v2',
-    color: '#4775b3',
-    headline: 'TabICL’s compression path, upgraded for long context, richer priors, many classes, and distributions.',
-    stages: ['repeated feature grouping + target embedding', 'TFcol + QASSMax', 'TFrow + RoPE + CLS tokens', 'TFicl + quantile / class output'],
-    attention: 'QASSMax rescales query elements with a learned, length-aware factor so attention does not fade as the context grows.',
-    prior: 'A modular generator spanning MLPs, tree ensembles, GP functions, linear, quadratic, EM-like, and product functions, with filtering and correlated hyperparameters.',
-    output: 'Classification with mixed-radix and hierarchical many-class handling; regression with 999 quantiles and reconstructed PDF, CDF, moments, and CRPS.',
-    innovation: ['Repeated feature grouping gives each feature multiple local views instead of dropping detail once.', 'Injects targets early to break representation symmetries and improve row embeddings.', 'Adds QASSMax, Muon pretraining, disk offloading, and a quantile-native regression head.'],
-    caveat: 'The report’s distributional regression validation is largely synthetic/toy; missing values and distribution shift remain explicit limitations.',
-  },
-  'TabPFN-3': {
-    sourceId: 'tabpfn-3',
-    color: '#3869a8',
-    headline: 'Compression returns to the TabPFN lineage, now built around million-row inference.',
-    stages: ['triplet cell embedding + missingness flags', 'column distribution embedding', 'row aggregation to fixed vectors', 'QASSMax ICL + retrieval decoder'],
-    attention: 'Column-wise inducing attention and row-level ICL. Test queries use multi-query cross-attention with one KV head to reduce cache size.',
-    prior: 'An expanded SCM prior with new graph samplers, function combiners, categorical mechanisms, temporal and OOD tasks, and spatial structure.',
-    output: 'Classification with an attention-based retrieval decoder and a released-checkpoint ceiling of 160 classes; regression via a distributional/bar head.',
-    innovation: ['Row chunking keeps feature activations bounded while preserving the semantics of full-table inducing summaries.', 'Reduced KV cache scales with rows rather than rows x features; the report gives a 7 GiB per-estimator example at 1M rows.', 'Native NaN/Inf indicators, orthogonal target embeddings, RMSNorm, and many-class retrieval decoding.'],
-    caveat: 'TabPFN-3-Plus text support and Thinking mode are API/enterprise features; the open checkpoint and report claims should not be conflated.',
-  },
-}
-
-const formatPercent = (value: number) => `${Math.round(value * 100)}%`
-const formatMoney = (value: number) => `$${Math.round(value).toLocaleString('en-US')}`
 
 export default function SlideApp() {
   const rows = makeTableRows()
@@ -170,6 +77,7 @@ export default function SlideApp() {
         <AnimatePresence mode="wait">
           <motion.div key={activeSlide.id} className="slide-scroll" initial={{ opacity: 0, x: 22 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={{ duration: 0.28, ease: 'easeOut' }}>
             {activeSlide.id === 'prompt' && <PromptSlide rows={rows} contextSize={contextSize} setContextSize={setContextSize} probability={probability} showHeldOutAnswer={showHeldOutAnswer} setShowHeldOutAnswer={setShowHeldOutAnswer} goToSlide={goToSlide} />}
+            {activeSlide.id === 'ppd' && <PosteriorPredictiveSlide />}
             {activeSlide.id === 'prior' && <PriorSlide />}
             {activeSlide.id === 'attention' && <AttentionSlide phase={attentionPhase} setPhase={setAttentionPhase} playing={attentionPlaying} setPlaying={setAttentionPlaying} />}
             {activeSlide.id === 'architectures' && <ArchitectureSlide model={selectedModel} setModel={setSelectedModel} />}
@@ -204,298 +112,4 @@ function DeckHeader({ activeIndex, mobileMenuOpen, setMobileMenuOpen, goToSlide 
 
 function DeckFooter({ activeIndex, goToSlide }: { activeIndex: number; goToSlide: (index: number) => void }) {
   return <footer className="deck-footer border-t border-[#1e2a35]/10 bg-[#ebe7dc]"><div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-5 py-3 lg:px-10"><button disabled={activeIndex === 0} onClick={() => goToSlide(activeIndex - 1)} className="inline-flex items-center gap-2 rounded-full px-2 py-2 text-xs font-semibold text-[#53606a] transition-colors hover:bg-[#f5f2ea] disabled:cursor-not-allowed disabled:opacity-35"><ArrowLeft size={15} /> previous</button><div className="flex items-center gap-2" aria-label={`Slide ${activeIndex + 1} of ${slides.length}`}>{slides.map((slide, index) => <button key={slide.id} onClick={() => goToSlide(index)} aria-label={`Go to slide ${index + 1}: ${slide.label}`} className={`h-1.5 rounded-full transition-all ${activeIndex === index ? 'w-8 bg-[#d64e3b]' : 'w-1.5 bg-[#b7b6ae] hover:bg-[#74808a]'}`} />)}</div><button disabled={activeIndex === slides.length - 1} onClick={() => goToSlide(activeIndex + 1)} className="inline-flex items-center gap-2 rounded-full px-2 py-2 text-xs font-semibold text-[#53606a] transition-colors hover:bg-[#f5f2ea] disabled:cursor-not-allowed disabled:opacity-35">next <ArrowRight size={15} /></button></div></footer>
-}
-
-function PromptSlide({ rows, contextSize, setContextSize, probability, showHeldOutAnswer, setShowHeldOutAnswer, goToSlide: goToSlideByIndex }: { rows: TableRow[]; contextSize: number; setContextSize: (value: number) => void; probability: number; showHeldOutAnswer: boolean; setShowHeldOutAnswer: (value: boolean) => void; goToSlide: (index: number) => void }) {
-  const goToSlide = (index: number) => goToSlideByIndex(index === 1 ? 2 : index)
-  return <SlideFrame number="01" kicker="The prompt / start with the analogy" tone="coral"><div className="slide-two-column"><div><h1 className="slide-title">A table can be a <em>prompt.</em></h1><p className="slide-lead">Large language models learn to continue a sequence after reading a context window. Tabular foundation models borrow the same shape of idea, but the “tokens” are structured rows and cells rather than words.</p><div className="grid gap-3 sm:grid-cols-2"><AnalogyCard icon={<BrainCircuit size={18} />} title="LLM prompt" formula={equations.llmNextToken} text="The model reads the prompt tokens, then scores possible next tokens." tone="coral" /><AnalogyCard icon={<Table2 size={18} />} title="Tabular prompt" formula={equations.tableNextLabel} text="The model reads labeled rows plus a query row, then scores possible labels." tone="cobalt" /></div><div className="mt-5 rounded-[14px] border border-[#1e2a35]/10 bg-[#fffdf8] p-5"><div className="flex items-start gap-3"><Eye size={18} className="mt-0.5 shrink-0 text-[#3869a8]" /><div><p className="text-sm font-semibold">What is the context window for?</p><p className="mt-2 text-sm leading-6 text-[#53606a]">It defines the evidence the model can compare at once. In an LLM, the window is a sequence of text tokens. In a TFM, it is usually a set of labeled context rows plus one or more unlabeled query rows. A larger window can expose more examples, but it also increases computation and can dilute a relevant pattern.</p></div></div></div><button onClick={() => goToSlide(1)} className="mt-6 inline-flex items-center gap-2 text-xs font-semibold text-[#d64e3b] hover:underline">Next: where did the model learn its bias? <ArrowRight size={14} /></button></div><PromptWindow rows={rows} contextSize={contextSize} setContextSize={setContextSize} probability={probability} showHeldOutAnswer={showHeldOutAnswer} setShowHeldOutAnswer={setShowHeldOutAnswer} /></div></SlideFrame>
-}
-
-function PromptWindow({ rows, contextSize, setContextSize, probability, showHeldOutAnswer, setShowHeldOutAnswer }: { rows: TableRow[]; contextSize: number; setContextSize: (value: number) => void; probability: number; showHeldOutAnswer: boolean; setShowHeldOutAnswer: (value: boolean) => void }) {
-  return <div className="surface-panel bg-[#fffdf8] shadow-[0_20px_60px_rgba(30,42,53,0.1)]"><div className="flex items-start justify-between gap-4 border-b border-[#1e2a35]/10 px-5 py-5"><div><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#d64e3b]">one prompt</p><p className="mt-1 text-lg font-semibold">Will query policy claim?</p></div><span className="rounded-full bg-[#e4edf8] px-3 py-1.5 font-mono text-[10px] font-semibold text-[#3869a8]">query row</span></div><div className="overflow-x-auto px-5 py-4"><table className="min-w-[470px] w-full border-collapse text-left text-[11px]"><thead><tr className="border-b border-[#1e2a35]/10 font-mono text-[9px] uppercase tracking-[0.08em] text-[#8a9295]"><th className="pb-3 pr-3 font-medium">role</th><th className="pb-3 pr-3 font-medium">driver age</th><th className="pb-3 pr-3 font-medium">vehicle</th><th className="pb-3 pr-3 font-medium">miles</th><th className="pb-3 font-medium">label</th></tr></thead><tbody>{rows.slice(0, 6).map((row, index) => <tr key={row.id} className={`border-b border-[#1e2a35]/7 ${index < contextSize ? 'text-[#1e2a35]' : 'text-[#abb1b1]'}`}><td className="py-3 pr-3"><span className={`rounded-full px-2 py-1 font-mono text-[9px] ${index < contextSize ? 'bg-[#f8edc9] text-[#a36b13]' : 'bg-[#f0eee7] text-[#9aa0a0]'}`}>{index < contextSize ? 'context' : 'held out'}</span></td><td className="py-3 pr-3 font-mono">{row.driverAge}</td><td className="py-3 pr-3 font-mono">{row.vehicleAge}y</td><td className="py-3 pr-3 font-mono">{row.annualMiles}k</td><td className={`py-3 font-mono font-semibold ${index < contextSize ? row.claim ? 'text-[#d64e3b]' : 'text-[#2f8175]' : 'text-[#abb1b1]'}`}>{index < contextSize ? row.claim ? 'yes' : 'no' : '—'}</td></tr>)}<tr className="bg-[#e4edf8] text-[#3869a8]"><td className="py-3 pr-3"><span className="rounded-full bg-[#4775b3] px-2 py-1 font-mono text-[9px] font-semibold text-white">query</span></td><td className="py-3 pr-3 font-mono">39</td><td className="py-3 pr-3 font-mono">8y</td><td className="py-3 pr-3 font-mono">15k</td><td className="py-3 font-mono font-semibold">{showHeldOutAnswer ? 'yes' : '?'}</td></tr></tbody></table></div><div className="grid gap-5 border-t border-[#1e2a35]/10 px-5 py-5 sm:grid-cols-[1fr_170px] sm:items-end"><Slider label="context rows" value={contextSize} min={1} max={6} step={1} onChange={setContextSize} suffix={`${contextSize} rows`} hint="These labels are visible to the model." /><div><div className="flex items-center justify-between font-mono text-[9px] uppercase tracking-[0.08em] text-[#74808a]"><span>output: P(claim)</span><span className="text-[#d64e3b]">{formatPercent(probability)}</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-[#e8e5dc]"><motion.div className="h-full rounded-full bg-[#d95b46]" animate={{ width: `${probability * 100}%` }} /></div><button onClick={() => setShowHeldOutAnswer(!showHeldOutAnswer)} className="mt-3 inline-flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.08em] text-[#3869a8] hover:underline"><LockKeyhole size={11} /> {showHeldOutAnswer ? 'hide label' : 'reveal held-out label'}</button></div></div><div className="border-t border-[#1e2a35]/10 bg-[#f8f6ef] px-5 py-4"><p className="text-xs leading-5 text-[#53606a]"><span className="font-semibold text-[#1e2a35]">Held out means hidden on purpose.</span> We hide the query label so the model has to predict it. During pretraining, the hidden label supplies the loss signal; during evaluation, it lets us check whether the probability was useful without leaking the answer.</p></div></div>
-}
-
-function PriorSlide() {
-  return (
-    <SlideFrame number="02" kicker="The prior / one pre-training episode" tone="yellow">
-      <div className="slide-two-column">
-        <div>
-          <h2 className="slide-title">Before the model sees a table, the simulator makes a <em>tiny world.</em></h2>
-          <p className="slide-lead">Pre-training repeats one simple recipe millions of times: choose a hidden rulebook, generate a small table, hide one answer, and penalize the model for assigning it too little probability.</p>
-          <div className="mt-5 border-l-2 border-[#c78924] pl-5 text-sm leading-6 text-[#53606a]"><span className="font-semibold text-[#8b661c]">The key distinction:</span> the distributions describe how the simulator behaves across many episodes. A single episode contributes ordinary numbers to the model&apos;s input.</div>
-          <div className="mt-5 rounded-[14px] border border-[#e2c679] bg-[#f8edc9] p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3"><span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#a36b13]">1 / p(phi)</span><span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[#8b661c]">sample one hidden rulebook</span></div>
-            <p className="mt-4 text-sm leading-6 text-[#806b3c]"><span className="font-semibold text-[#7e5a18]">p(phi)</span> is the simulator&apos;s distribution over possible rulebooks. For this one episode, it happens to draw a simple causal housing model:</p>
-            <div className="mt-4 grid gap-2 rounded-[10px] bg-[#fff7d9] px-4 py-3 text-[#1e2a35]"><BlockMath math={String.raw`x^{(2)}\sim\operatorname{Poisson}(3)`} /><BlockMath math={String.raw`x^{(1)}=500x^{(2)}+\epsilon_x`} /><BlockMath math={String.raw`y=100x^{(1)}+20{,}000x^{(2)}+\epsilon_y`} /></div>
-            <p className="mt-4 text-xs leading-5 text-[#7e5a18]"><span className="font-semibold">What gets passed forward?</span> One concrete draw, phi_1: these formulas plus the sampled noise values. The probability distribution p(phi) itself is not a column in the table.</p>
-          </div>
-        </div>
-        <div className="grid gap-4">
-          <div className="surface-panel overflow-hidden bg-[#fffdf8] p-5">
-            <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#3869a8]">2 features / 3 training rows + query</p><p className="mt-1 text-lg font-semibold">One generated episode</p></div><span className="rounded-full bg-[#e4edf8] px-3 py-1.5 font-mono text-[10px] font-semibold text-[#3869a8]">D + query</span></div>
-            <p className="mt-4 text-sm leading-6 text-[#53606a]"><span className="font-semibold text-[#3869a8]">p(x)</span> is the distribution used to draw feature rows. Here the simulator draws four houses from the rulebook: three become context D, and one becomes the query.</p>
-            <div className="mt-5 overflow-x-auto"><table className="min-w-[500px] w-full border-collapse text-left text-[11px]"><thead><tr className="border-b border-[#1e2a35]/10 font-mono text-[9px] uppercase tracking-[0.08em] text-[#8a9295]"><th className="pb-3 pr-3 font-medium">row</th><th className="pb-3 pr-3 font-medium">feature 1 / sq ft</th><th className="pb-3 pr-3 font-medium">feature 2 / beds</th><th className="pb-3 font-medium">target / price</th></tr></thead><tbody><tr className="border-b border-[#1e2a35]/7"><td className="py-3 pr-3 font-mono font-semibold text-[#2f8175]">D1</td><td className="py-3 pr-3 font-mono">1,050</td><td className="py-3 pr-3 font-mono">2</td><td className="py-3 font-mono">$143k</td></tr><tr className="border-b border-[#1e2a35]/7"><td className="py-3 pr-3 font-mono font-semibold text-[#2f8175]">D2</td><td className="py-3 pr-3 font-mono">1,480</td><td className="py-3 pr-3 font-mono">3</td><td className="py-3 font-mono">$209k</td></tr><tr className="border-b border-[#1e2a35]/7"><td className="py-3 pr-3 font-mono font-semibold text-[#2f8175]">D3</td><td className="py-3 pr-3 font-mono">2,020</td><td className="py-3 pr-3 font-mono">4</td><td className="py-3 font-mono">$281.5k</td></tr><tr className="bg-[#e4edf8] text-[#3869a8]"><td className="py-3 pr-3 font-mono font-semibold">Q</td><td className="py-3 pr-3 font-mono">1,510</td><td className="py-3 pr-3 font-mono">3</td><td className="py-3 font-mono font-semibold">hidden</td></tr></tbody></table></div>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2"><div className="rounded-[10px] bg-[#dfeee7] p-3"><p className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#2f8175]">context D</p><p className="mt-1 text-xs font-semibold">the first 3 rows</p></div><div className="rounded-[10px] bg-[#e4edf8] p-3"><p className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#3869a8]">query x_test</p><p className="mt-1 font-mono text-xs font-semibold">(1,510, 3)</p></div></div>
-            <p className="mt-4 text-xs leading-5 text-[#74808a]">The simulator knows the hidden answer too: y_test = $212k. The model receives only the query features, not that price.</p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-[14px] border border-[#a8d2c3] bg-[#dfeee7] p-5"><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#2f8175]">3 / p(y | x,D)</p><p className="mt-3 text-sm leading-6 text-[#53606a]"><span className="font-semibold text-[#2f8175]">p(y | x,D)</span> asks what prices are plausible after seeing D. The model outputs an approximation q_theta.</p><div className="mt-4 grid grid-cols-3 gap-1.5"><div className="rounded-[8px] bg-[#fbe4dc] p-2 text-center"><p className="font-mono text-[8px] text-[#8a4d43]">low</p><p className="mt-1 font-serif text-lg text-[#d64e3b]">3.5%</p></div><div className="rounded-[8px] bg-[#f8edc9] p-2 text-center"><p className="font-mono text-[8px] text-[#8b661c]">medium</p><p className="mt-1 font-serif text-lg text-[#a36b13]">94.2%</p></div><div className="rounded-[8px] bg-[#e4edf8] p-2 text-center"><p className="font-mono text-[8px] text-[#3869a8]">high</p><p className="mt-1 font-serif text-lg text-[#3869a8]">2.3%</p></div></div><div className="mt-4 overflow-x-auto rounded-[8px] bg-[#fffdf8] px-3 py-2"><BlockMath math={String.raw`q_\theta(y\mid x,D)=[0.035,\ 0.942,\ 0.023]`} /></div></div>
-            <div className="rounded-[14px] border border-[#efb2a2] bg-[#fbe4dc] p-5"><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#d64e3b]">4 / loss on this sample</p><p className="mt-3 text-sm leading-6 text-[#8a4d43]">$212k is in the middle bin, so y = [0, 1, 0]. Cross-entropy checks the probability assigned to that bin.</p><div className="mt-4 overflow-x-auto rounded-[8px] bg-[#fffdf8] px-3 py-2"><BlockMath math={String.raw`\mathcal{L}_{\mathrm{CE}}=-\sum_{c=0}^{2}y_c\log\hat y_c`} /><BlockMath math={String.raw`=-\left(0\log 0.035+1\log 0.942+0\log 0.023\right)=-\log(0.942)\approx 0.060`} /></div><p className="mt-3 font-mono text-[10px] font-semibold text-[#7b3328]">bad guess: -log(0.05) = 2.996</p></div>
-          </div>
-        </div>
-      </div>
-      <div className="mt-5 border-t border-[#1e2a35]/10 pt-5 text-sm leading-6 text-[#53606a]"><span className="font-semibold text-[#8b661c]">In one sentence:</span> p(phi) chooses the hidden world, p(x) supplies the rows, and p(y | x,D) is the distribution the model learns to predict for the held-out row. The distributions are not extra input columns; repeated sampled tables and their losses carve the pattern into the model&apos;s weights.</div>
-    </SlideFrame>
-  )
-}
-
-function AttentionSlide({ phase, setPhase, playing, setPlaying }: { phase: AttentionPhase; setPhase: (value: AttentionPhase) => void; playing: boolean; setPlaying: (value: boolean) => void }) {
-  const phases: { id: AttentionPhase; label: string; title: string; explanation: string; formula: string }[] = [
-    { id: 'column', label: 'column attention', title: 'Look down a column', explanation: 'Cells in one feature compare across rows. The model can learn distributional facts such as scale, skew, extremes, or category patterns.', formula: equations.columnAttention },
-    { id: 'row', label: 'row attention', title: 'Look across a row', explanation: 'Features within one policyholder interact. The model can combine age, vehicle, miles, and region before asking what they imply together.', formula: equations.rowAttention },
-    { id: 'alternating', label: 'alternating attention', title: 'Column, then row, then repeat', explanation: 'TabPFN-v2 and TabPFN-2.5 alternate the two views so information can travel across the table without treating every cell as an isolated scalar.', formula: equations.alternating },
-    { id: 'icl', label: 'compression then ICL', title: 'Compress, then let the query read context', explanation: 'TabICL names its stages TFcol, TFrow, and TFicl: columns become distribution-aware embeddings, rows become fixed-width vectors, then the query reads labeled rows. A readout converts the weighted evidence into the output cell.', formula: equations.tableNextLabel },
-  ]
-  const activePhase = phases.find((item) => item.id === phase) ?? phases[0]
-  const queryWeights = attentionForQuery(4, 1)
-  return <SlideFrame number="03" kicker="In context / the mechanics of attention" tone="mint"><div className="slide-two-column"><div><h2 className="slide-title">Attention is a routing rule for evidence.</h2><p className="slide-lead">The query is not “looking” in a human sense. Each attention head computes compatibility between a query vector and key vectors, then uses the resulting weights to mix value vectors.</p><div className="rounded-[14px] border border-[#a8d2c3] bg-[#dfeee7] p-5"><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#2f8175]">the shared engine</p><BlockMath math={equations.attention} /><p className="text-xs leading-5 text-[#53606a]">Large weights route more of the value information into the next representation. The mask decides which comparisons are legal.</p></div><div className="mt-5 grid gap-2">{phases.map((item) => <button key={item.id} onClick={() => setPhase(item.id)} className={`flex items-center justify-between rounded-[10px] border px-4 py-3 text-left transition-colors ${phase === item.id ? 'border-[#3e8d7e] bg-[#dfeee7]' : 'border-[#1e2a35]/10 bg-[#fffdf8] hover:bg-[#f5f2ea]'}`}><span><span className="block text-sm font-semibold">{item.label}</span><span className="mt-1 block text-xs text-[#74808a]">{item.title}</span></span><ArrowRight size={15} className={phase === item.id ? 'text-[#2f8175]' : 'text-[#a4a9aa]'} /></button>)}</div></div><div className="surface-panel bg-[#fffdf8] p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#74808a]">animated attention map</p><p className="mt-1 text-xl font-semibold">{activePhase.title}</p></div><button onClick={() => setPlaying(!playing)} className="inline-flex items-center gap-2 rounded-full bg-[#1e2a35] px-3 py-2 text-xs font-semibold text-[#f5f2ea]">{playing ? <Pause size={14} /> : <Play size={14} />} {playing ? 'pause' : 'play'} sequence</button></div><AttentionAnimation phase={phase} queryWeights={queryWeights} /><div className="mt-5 rounded-[10px] bg-[#f5f2ea] p-4"><p className="text-sm font-semibold">{activePhase.explanation}</p><div className="mt-3 overflow-x-auto"><BlockMath math={activePhase.formula} /></div></div><PredictionReadout phase={phase} /></div></div></SlideFrame>
-}
-
-function AttentionAnimation({ phase, queryWeights }: { phase: AttentionPhase; queryWeights: number[] }) {
-  const rows = ['A', 'B', 'C', 'Q']
-  const columns = ['age', 'vehicle', 'miles']
-  return <div className="mt-7 rounded-[12px] border border-[#1e2a35]/10 bg-[#f5f2ea] p-4"><div className="grid grid-cols-[34px_repeat(3,1fr)_64px] items-center gap-2 text-center font-mono text-[9px] uppercase tracking-[0.08em] text-[#8a9295]"><span />{columns.map((column) => <span key={column}>{column}</span>)}<span>output</span>{rows.map((row, rowIndex) => <div key={row} className="contents"><span className={`text-left font-semibold ${row === 'Q' ? 'text-[#3869a8]' : 'text-[#74808a]'}`}>{row}</span>{columns.map((column, columnIndex) => { const active = phase === 'column' ? columnIndex === 1 : phase === 'row' ? rowIndex === 3 : phase === 'alternating' ? (rowIndex + columnIndex) % 2 === 0 : rowIndex === 3; return <motion.span key={`${row}-${column}`} className={`flex h-12 items-center justify-center rounded-[8px] border font-mono text-[10px] transition-colors ${active ? 'border-[#3e8d7e] bg-[#bfe0d3] text-[#1e5e55]' : 'border-[#1e2a35]/8 bg-[#fffdf8] text-[#74808a]'}`} animate={{ scale: active ? 1.05 : 1, opacity: active ? 1 : 0.62 }} transition={{ duration: 0.35 }}>{rowIndex === 3 && columnIndex === 2 ? '?' : `${[22, 11, 18, 39, 8, 15, 51, 9, 16, 64, 5, 6][rowIndex * 3 + columnIndex]}`}</motion.span> })}<motion.span className={`flex h-12 items-center justify-center rounded-[8px] border font-mono text-[10px] font-semibold ${row === 'Q' ? 'border-[#d64e3b] bg-[#fbe4dc] text-[#d64e3b]' : 'border-[#1e2a35]/8 bg-[#fffdf8] text-[#b0b5b4]'}`} animate={{ opacity: row === 'Q' ? 1 : phase === 'icl' ? 0.92 : 0.45 }}>{row === 'Q' ? `${Math.round((0.48 + queryWeights[1] * 0.4) * 100)}%` : '—'}</motion.span></div>)}</div><div className="mt-4 flex flex-wrap items-center gap-4 font-mono text-[9px] uppercase tracking-[0.08em] text-[#74808a]"><span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded bg-[#bfe0d3]" /> active route</span><span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded border border-[#d64e3b] bg-[#fbe4dc]" /> predicted target</span></div></div>
-}
-
-function PredictionReadout({ phase }: { phase: AttentionPhase }) {
-  const value = phase === 'column' ? 54 : phase === 'row' ? 61 : phase === 'alternating' ? 65 : 68
-  return <><div className="mt-5 grid gap-3 sm:grid-cols-[1fr_190px] sm:items-center"><div><p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#74808a]">the output cell is still missing</p><p className="mt-2 text-sm leading-6 text-[#53606a]">Attention changes the hidden representation. The final head maps that representation to a probability for the held-out claim label.</p></div><div className="rounded-[12px] border border-[#efb2a2] bg-[#fbe4dc] p-4"><p className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#8a4d43]">P(claim = 1)</p><p className="mt-1 font-serif text-4xl text-[#d64e3b]">{value}%</p><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/70"><motion.div className="h-full rounded-full bg-[#d64e3b]" animate={{ width: `${value}%` }} /></div></div></div><AttentionPipeline phase={phase} /></>
-}
-
-function AttentionPipeline({ phase }: { phase: AttentionPhase }) {
-  const activeStep = phase === 'column' ? 0 : phase === 'row' ? 1 : phase === 'alternating' ? 2 : 3
-  const steps = [
-    ['Q · K', 'similarity scores'],
-    ['softmax', 'attention weights'],
-    ['Σ αV', 'weighted values'],
-    ['head', 'logit / probability'],
-  ]
-  return <div className="mt-5 rounded-[12px] border border-[#1e2a35]/10 bg-[#f5f2ea] p-4"><div className="grid gap-2 sm:grid-cols-4">{steps.map(([label, text], index) => <motion.div key={label} className={`rounded-[9px] border p-3 ${activeStep === index ? 'border-[#3e8d7e] bg-[#dfeee7]' : 'border-[#1e2a35]/8 bg-[#fffdf8]'}`} animate={{ opacity: activeStep === index ? 1 : 0.58, y: activeStep === index ? -2 : 0 }}><p className="font-mono text-xs font-semibold text-[#1e2a35]">{label}</p><p className="mt-1 text-[10px] leading-4 text-[#74808a]">{text}</p></motion.div>)}</div><p className="mt-4 text-[10px] leading-5 text-[#74808a]"><span className="font-mono uppercase tracking-[0.08em] text-[#3869a8]">mask rule:</span> context labels are visible, the query label stays hidden, and no query token can read the held-out answer.</p></div>
-}
-
-function ArchitectureSlide({ model, setModel }: { model: ModelKey; setModel: (value: ModelKey) => void }) {
-  const detail = modelDetails[model]
-  const matrix = modelMatrix.find((item) => item.model === model) as ModelComparison
-  return <SlideFrame number="04" kicker="Architectures / innovations across the lineage" tone="cobalt"><div className="slide-wide"><div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end"><div><h2 className="slide-title">One family, several answers to the same bottleneck.</h2><p className="slide-lead max-w-3xl">Use the tabs as a timeline. Each version keeps the learned-algorithm idea, then changes where information is represented, where attention is spent, or what the output head can express.</p></div><span className="rounded-full border border-[#a8c4e6] bg-[#e4edf8] px-3 py-2 font-mono text-[9px] uppercase tracking-[0.1em] text-[#3869a8]">innovation timeline</span></div><div className="mt-8 flex gap-2 overflow-x-auto pb-2" role="tablist" aria-label="Architecture timeline">{(Object.keys(modelDetails) as ModelKey[]).map((key) => <button key={key} onClick={() => setModel(key)} role="tab" aria-selected={model === key} className={`whitespace-nowrap rounded-full border px-4 py-2.5 text-xs font-semibold ${model === key ? 'border-[#3869a8] bg-[#e4edf8] text-[#3869a8]' : 'border-[#1e2a35]/12 bg-[#fffdf8] text-[#74808a] hover:text-[#1e2a35]'}`}>{key}</button>)}</div><div className="mt-5 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]"><div className="surface-panel bg-[#fffdf8] p-5"><div className="flex items-start justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-[0.14em]" style={{ color: detail.color }}>{model}</p><p className="mt-1 text-xl font-semibold">{detail.headline}</p></div><span className="rounded-[8px] px-3 py-2 font-mono text-[10px]" style={{ backgroundColor: `${detail.color}16`, color: detail.color }}>{matrix.tasks}</span></div><ArchitecturePath stages={detail.stages} color={detail.color} /><div className="mt-7 grid gap-4 border-t border-[#1e2a35]/10 pt-5 sm:grid-cols-2"><DetailBox label="attention" value={detail.attention} /><DetailBox label="synthetic prior" value={detail.prior} /><DetailBox label="output" value={detail.output} /><DetailBox label="input envelope" value={matrix.maxInput} /></div></div><div className="grid gap-5"><div className="surface-panel bg-[#1e2a35] p-5 text-[#f5f2ea]"><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#f6c34a]">what this version introduced</p><div className="mt-4 grid gap-3">{detail.innovation.map((item) => <div key={item} className="flex gap-3 text-sm leading-6 text-[#d6dddd]"><Check size={15} className="mt-1 shrink-0 text-[#f6c34a]" />{item}</div>)}</div></div><div className="rounded-[14px] border border-[#efb2a2] bg-[#fbe4dc] p-5"><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#d64e3b]">read the boundary</p><p className="mt-3 text-sm leading-6 text-[#7b3328]">{detail.caveat}</p></div></div></div><div className="mt-5 overflow-x-auto rounded-[14px] border border-[#1e2a35]/10 bg-[#ebe7dc] p-5"><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#74808a]">side-by-side facts</p><table className="mt-4 min-w-[760px] w-full border-collapse text-left text-xs"><thead><tr className="border-b border-[#1e2a35]/12 font-mono text-[9px] uppercase tracking-[0.08em] text-[#8a9295]"><th className="pb-3 pr-4">model</th><th className="pb-3 pr-4">row attention</th><th className="pb-3 pr-4">column attention</th><th className="pb-3 pr-4">input envelope</th><th className="pb-3">output</th></tr></thead><tbody><tr><td className="py-4 pr-4 font-semibold">{matrix.model}</td><td className="py-4 pr-4">{matrix.rowAttention}</td><td className="py-4 pr-4">{matrix.columnAttention}</td><td className="py-4 pr-4">{matrix.maxInput}</td><td className="py-4">{matrix.maxOutput}</td></tr></tbody></table></div></div></SlideFrame>
-}
-
-function ArchitecturePath({ stages, color }: { stages: string[]; color: string }) {
-  return <div className="mt-8 grid gap-2 sm:grid-cols-4">{stages.map((stage, index) => <div key={stage} className="relative"><div className="flex min-h-[94px] flex-col justify-between rounded-[10px] border p-3" style={{ borderColor: `${color}55`, backgroundColor: `${color}0c` }}><span className="font-mono text-[9px] uppercase tracking-[0.08em]" style={{ color }}>stage {index + 1}</span><span className="text-sm font-semibold leading-5">{stage}</span></div>{index < stages.length - 1 && <ArrowRight className="absolute -right-3 top-10 z-10 hidden bg-[#fffdf8] text-[#74808a] sm:block" size={17} />}</div>)}</div>
-}
-
-function ProbabilitySlide({ rows, contextSize, mode, setMode, showHeldOutAnswer, setShowHeldOutAnswer }: { rows: TableRow[]; contextSize: number; mode: ProbabilityMode; setMode: (value: ProbabilityMode) => void; showHeldOutAnswer: boolean; setShowHeldOutAnswer: (value: boolean) => void }) {
-  const [driverAge, setDriverAge] = useState(39)
-  const [vehicleAge, setVehicleAge] = useState(8)
-  const [annualMiles, setAnnualMiles] = useState(15)
-  const [urban, setUrban] = useState(true)
-  const severity = 2900 + vehicleAge * 95 + annualMiles * 44 + (urban ? 240 : -130)
-  const quantiles = severityQuantiles(severity, 950, 430)
-  const promptProbability = targetProbability(driverAge, vehicleAge, annualMiles, urban)
-  const expectedCost = promptProbability * severity
-  return <SlideFrame number="05" kicker="Probability / bring the prompt into an actuarial workflow" tone="coral"><div className="slide-wide"><div className="grid gap-7 lg:grid-cols-[0.8fr_1.2fr] lg:items-end"><div><h2 className="slide-title">The target is not just a class. It can be a probability or a distribution.</h2><p className="slide-lead">Use the same context-query contract from slide 1. The rows in the prompt are evidence; the query row is the policy we want to score. Classification asks for a probability of any claim. Regression asks for a conditional distribution of severity.</p></div><div className="rounded-[14px] border border-[#efb2a2] bg-[#fbe4dc] p-5"><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#d64e3b]">same prompt, new head</p><p className="mt-2 text-sm leading-6 text-[#7b3328]">A TFM can use the same in-context evidence pattern for different output spaces. The head changes; the query/context relationship remains.</p></div></div><div className="mt-8 flex gap-2" role="tablist" aria-label="Probability output type"><button onClick={() => setMode('classification')} className={`rounded-full border px-4 py-2.5 text-xs font-semibold ${mode === 'classification' ? 'border-[#d64e3b] bg-[#fbe4dc] text-[#d64e3b]' : 'border-[#1e2a35]/12 bg-[#fffdf8] text-[#74808a]'}`}>classification / claim probability</button><button onClick={() => setMode('regression')} className={`rounded-full border px-4 py-2.5 text-xs font-semibold ${mode === 'regression' ? 'border-[#a36b13] bg-[#f8edc9] text-[#a36b13]' : 'border-[#1e2a35]/12 bg-[#fffdf8] text-[#74808a]'}`}>regression / severity distribution</button></div><div className="mt-5 grid gap-5 lg:grid-cols-[1fr_0.92fr]"><PromptMiniTable rows={rows} contextSize={contextSize} showHeldOutAnswer={showHeldOutAnswer} setShowHeldOutAnswer={setShowHeldOutAnswer} /><div className="surface-panel bg-[#fffdf8] p-5">{mode === 'classification' ? <ClassificationOutput probability={promptProbability} /> : <RegressionOutput severity={severity} quantiles={quantiles} />}<div className="mt-6 grid gap-4 border-t border-[#1e2a35]/10 pt-5 sm:grid-cols-3"><Slider label="driver age" value={driverAge} min={18} max={78} step={1} onChange={setDriverAge} suffix={`${driverAge}`} hint="query feature" /><Slider label="vehicle age" value={vehicleAge} min={0} max={18} step={1} onChange={setVehicleAge} suffix={`${vehicleAge}y`} hint="query feature" /><Slider label="annual miles" value={annualMiles} min={2} max={35} step={1} onChange={setAnnualMiles} suffix={`${annualMiles}k`} hint="query feature" /></div><button onClick={() => setUrban(!urban)} className={`mt-4 rounded-full border px-3 py-2 text-xs font-semibold ${urban ? 'border-[#a8c4e6] bg-[#e4edf8] text-[#3869a8]' : 'border-[#1e2a35]/12 text-[#74808a]'}`}>{urban ? 'urban exposure included' : 'rural exposure included'}</button></div></div><div className="mt-5 grid gap-4 md:grid-cols-3"><MetricCard title="context" value={`${contextSize} labeled rows`} text="The visible evidence in the prompt." color="#4775b3" icon={<Table2 size={16} />} /><MetricCard title="query" value="Q-09 / held out" text="Features are visible; target label is withheld." color="#d95b46" icon={<Target size={16} />} /><MetricCard title="actuarial bridge" value={formatMoney(expectedCost)} text="Illustrative frequency x conditional severity." color="#c78924" icon={<BarChart3 size={16} />} /></div><div className="mt-5 overflow-x-auto rounded-[14px] border border-[#1e2a35]/10 bg-[#ebe7dc] p-5"><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#74808a]">math link</p><div className="mt-3 overflow-x-auto"><BlockMath math={mode === 'classification' ? equations.tableNextLabel : equations.quantileLoss} /></div><p className="mt-2 text-xs leading-5 text-[#53606a]">For pricing or reserving, the prediction still needs exposure definitions, claim development, calibration checks, temporal validation, and governance. This slide only makes the model contract visible.</p></div></div></SlideFrame>
-}
-
-function PromptMiniTable({ rows, contextSize, showHeldOutAnswer, setShowHeldOutAnswer }: { rows: TableRow[]; contextSize: number; showHeldOutAnswer: boolean; setShowHeldOutAnswer: (value: boolean) => void }) {
-  return <div className="surface-panel bg-[#1e2a35] p-5 text-[#f5f2ea]"><div className="flex items-start justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#f6c34a]">the prompt carried forward</p><p className="mt-1 text-lg font-semibold">Context rows teach the query</p></div><span className="rounded-full bg-white/10 px-3 py-1.5 font-mono text-[10px] text-[#bbc4c4]">{contextSize} examples</span></div><div className="mt-6 grid gap-2">{rows.slice(0, 6).map((row, index) => <div key={row.id} className={`grid grid-cols-[70px_1fr_1fr_1fr_48px] items-center gap-2 rounded-[8px] px-3 py-3 font-mono text-[10px] ${index < contextSize ? 'bg-white/10 text-[#f5f2ea]' : 'bg-white/4 text-[#788787]'}`}><span className="text-[9px] uppercase tracking-[0.08em]">{index < contextSize ? 'context' : 'unused'}</span><span>age {row.driverAge}</span><span>car {row.vehicleAge}y</span><span>miles {row.annualMiles}k</span><span className={row.claim ? 'text-[#f6c34a]' : 'text-[#82c7bb]'}>{index < contextSize ? row.claim ? 'yes' : 'no' : '—'}</span></div>)}<div className="grid grid-cols-[70px_1fr_1fr_1fr_48px] items-center gap-2 rounded-[8px] border border-[#f6c34a]/50 bg-[#f6c34a]/10 px-3 py-3 font-mono text-[10px] text-[#f6c34a]"><span className="text-[9px] uppercase tracking-[0.08em]">query</span><span>age 39</span><span>car 8y</span><span>miles 15k</span><span>{showHeldOutAnswer ? 'yes' : '?'}</span></div></div><button onClick={() => setShowHeldOutAnswer(!showHeldOutAnswer)} className="mt-6 inline-flex items-center gap-2 text-xs font-semibold text-[#f6c34a] hover:underline"><Eye size={14} /> {showHeldOutAnswer ? 'hide the answer again' : 'reveal the held-out answer'}</button><div className="mt-6 border-t border-white/12 pt-5 text-sm leading-6 text-[#bbc4c4]">A predictive distribution is useful because it separates <span className="text-[#f6c34a]">what the model expects</span> from <span className="text-[#f5f2ea]">what happened for this one row</span>.</div></div>
-}
-
-function ClassificationOutput({ probability }: { probability: number }) {
-  return <div><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#d64e3b]">classification head</p><div className="mt-4 flex items-end justify-between gap-5"><div><p className="font-serif text-6xl text-[#d64e3b]">{formatPercent(probability)}</p><p className="mt-2 text-sm text-[#53606a]">P(at least one claim | query, context)</p></div><div className="w-40"><div className="flex items-center justify-between font-mono text-[9px] uppercase text-[#74808a]"><span>claim</span><span>{formatPercent(probability)}</span></div><div className="mt-2 h-3 overflow-hidden rounded-full bg-[#e8e5dc]"><motion.div className="h-full rounded-full bg-[#d95b46]" animate={{ width: `${probability * 100}%` }} /></div><div className="mt-3 flex items-center justify-between font-mono text-[9px] uppercase text-[#74808a]"><span>no claim</span><span>{formatPercent(1 - probability)}</span></div></div></div><div className="mt-6 rounded-[10px] bg-[#fbe4dc] p-4 text-sm leading-6 text-[#7b3328]">The number is a probability, not a class label. Log loss and Brier score test whether the probability is discriminative and honest about uncertainty.</div></div>
-}
-
-function RegressionOutput({ severity, quantiles }: { severity: number; quantiles: number[] }) {
-  const xScale = scaleLinear().domain([Math.min(...quantiles) - 250, Math.max(...quantiles) + 250]).range([24, 330])
-  const points = quantiles.map((value, index) => `${xScale(value)},${128 - Math.abs(index - 3) * 14}`).join(' ')
-  return <div><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#a36b13]">distributional regression head</p><div className="mt-4 flex items-end justify-between gap-5"><div><p className="font-serif text-5xl text-[#a36b13]">{formatMoney(severity)}</p><p className="mt-2 text-sm text-[#53606a]">central severity estimate, conditional on a claim</p></div><span className="rounded-[10px] bg-[#f8edc9] px-3 py-2 font-mono text-[10px] text-[#8b661c]">quantiles, not one point</span></div><svg className="mt-6 h-auto w-full" viewBox="0 0 355 170" role="img" aria-label="Conditional severity quantile curve"><title>Conditional severity predictive quantiles</title><line x1="24" x2="330" y1="128" y2="128" stroke="#d9d6cc" /><polyline points={points} fill="none" stroke="#c78924" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />{quantiles.map((value, index) => <circle key={index} cx={xScale(value)} cy={128 - Math.abs(index - 3) * 14} r="4" fill="#c78924" />)}<text x="24" y="158" fill="#8a9295" fontSize="9" fontFamily="DM Mono">5th percentile</text><text x="260" y="158" fill="#8a9295" fontSize="9" fontFamily="DM Mono">95th percentile</text></svg><div className="mt-4 rounded-[10px] bg-[#f8edc9] p-4 text-sm leading-6 text-[#806b3c]">The context-query contract is unchanged. RMSE and MAE score point summaries; pinball loss, CRPS, and coverage score the predictive distribution and its intervals.</div></div>
-}
-
-export function BenchmarksSlide({ benchmarkKey, setBenchmarkKey, metric, setMetric }: { benchmarkKey: BenchmarkKey; setBenchmarkKey: (value: BenchmarkKey) => void; metric: 'elo' | 'improvability'; setMetric: (value: 'elo' | 'improvability') => void }) {
-  const note = benchmarkNotes[benchmarkKey]
-  const values = benchmarkKey === 'tabArena' ? [...tabArenaSnapshot].sort((first, second) => metric === 'elo' ? second.elo - first.elo : first.improvability - second.improvability) : []
-  const maxValue = metric === 'elo' ? 1850 : 20
-  return <SlideFrame number="06" kicker="Benchmarks / how evidence is assembled" tone="yellow"><div className="slide-wide"><div className="grid gap-7 lg:grid-cols-[0.78fr_1.22fr] lg:items-end"><div><h2 className="slide-title">A leaderboard is a protocol, not a magic number.</h2><p className="slide-lead">TabArena runs many datasets and task splits, scores each model with a task-appropriate metric, then aggregates results. The key question is always: compared under which data, split, tuning, and ensemble regime?</p></div><a href="https://huggingface.co/spaces/TabArena/leaderboard" target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-full bg-[#1e2a35] px-4 py-3 text-xs font-semibold text-[#f5f2ea] hover:bg-[#3869a8]">open live TabArena board <ExternalLink size={14} /></a></div><div className="mt-8 flex gap-2 overflow-x-auto pb-2" role="tablist" aria-label="Benchmark views">{(['tabArena', 'talent', 'openMl'] as BenchmarkKey[]).map((key) => <button key={key} onClick={() => setBenchmarkKey(key)} className={`whitespace-nowrap rounded-full border px-4 py-2.5 text-xs font-semibold ${benchmarkKey === key ? 'border-[#a36b13] bg-[#f8edc9] text-[#a36b13]' : 'border-[#1e2a35]/12 bg-[#fffdf8] text-[#74808a]'}`}>{benchmarkNotes[key].title}</button>)}</div><div className="mt-5 grid gap-5 lg:grid-cols-[0.7fr_1.3fr]"><BenchmarkMethodology note={note} benchmarkKey={benchmarkKey} /><div className="surface-panel bg-[#fffdf8] p-5">{benchmarkKey === 'tabArena' ? <><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#a36b13]">paper-linked TabArena snapshot</p><p className="mt-1 text-lg font-semibold">Default, tuned, and Thinking are different comparisons</p></div><div className="flex rounded-full border border-[#1e2a35]/12 bg-[#f5f2ea] p-1"><button onClick={() => setMetric('elo')} className={`rounded-full px-3 py-2 text-[10px] font-semibold ${metric === 'elo' ? 'bg-[#1e2a35] text-[#f5f2ea]' : 'text-[#74808a]'}`}>Elo</button><button onClick={() => setMetric('improvability')} className={`rounded-full px-3 py-2 text-[10px] font-semibold ${metric === 'improvability' ? 'bg-[#1e2a35] text-[#f5f2ea]' : 'text-[#74808a]'}`}>improvability</button></div></div><div className="mt-7 grid gap-4">{values.map((row) => <BenchmarkBar key={`${row.model}-${row.regime}`} row={row} metric={metric} maxValue={maxValue} />)}</div><div className="mt-6 border-t border-[#1e2a35]/10 pt-4 text-xs leading-5 text-[#74808a]">Snapshot values are transcribed from the TabPFN-3 report&apos;s TabArena table. The linked Hugging Face board is the place to inspect current leaderboard updates.</div></> : <BenchmarkSummary benchmarkKey={benchmarkKey} note={note} />}</div></div><div className="mt-5 grid gap-4 md:grid-cols-3"><MethodStep number="01" title="split" text="Create folds or fixed train / validation / test partitions." icon={<GitBranch size={17} />} /><MethodStep number="02" title="fit" text="Run each model under a named default, tuned, or ensemble regime." icon={<BrainCircuit size={17} />} /><MethodStep number="03" title="aggregate" text="Compare errors per dataset before averaging ranks or Elo." icon={<BarChart3 size={17} />} /></div></div></SlideFrame>
-}
-
-function BenchmarkJourneySlide() {
-  const scoreRows = tabArenaSnapshot.filter((row) => ['TabPFN-3', 'TabICLv2', 'CatBoost', 'XGBoost', 'Linear model'].includes(row.model))
-  const tabPfn3 = scoreRows.find((row) => row.model === 'TabPFN-3')
-  const catBoost = scoreRows.find((row) => row.model === 'CatBoost')
-  const xgBoost = scoreRows.find((row) => row.model === 'XGBoost')
-  const maxElo = Math.max(...scoreRows.map((row) => row.elo), 1)
-  const stageColors: Record<BenchmarkEra['id'], string> = {
-    linear: '#3869a8',
-    trees: '#c78924',
-    neural: '#d64e3b',
-    foundation: '#2f8175',
-  }
-  const stageIcons: Record<BenchmarkEra['id'], ReactNode> = {
-    linear: <BarChart3 size={21} />,
-    trees: <GitBranch size={21} />,
-    neural: <BrainCircuit size={21} />,
-    foundation: <Layers3 size={21} />,
-  }
-
-  return (
-    <SlideFrame number="06" kicker="Benchmarks / the tabular model journey" tone="yellow">
-      <div className="slide-wide">
-        <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
-          <div>
-            <h2 className="slide-title">The tabular winner changed.</h2>
-            <p className="slide-lead max-w-3xl">Trees took the lead from additive models. Early neural nets did not consistently displace them. Recent tabular foundation models are the new challenge.</p>
-          </div>
-          <a href="https://huggingface.co/spaces/TabArena/leaderboard" target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-full bg-[#1e2a35] px-4 py-3 text-xs font-semibold text-[#f5f2ea] hover:bg-[#3869a8]">live TabArena board <ExternalLink size={14} /></a>
-        </div>
-
-        <div className="mt-8 grid gap-3 lg:grid-cols-4">
-          {benchmarkJourney.map((stage, index) => {
-            const color = stageColors[stage.id]
-            return (
-              <div key={stage.id} className="relative rounded-[14px] border border-[#1e2a35]/10 bg-[#fffdf8] p-4" style={{ borderTopColor: color, borderTopWidth: 3 }}>
-                <div className="flex items-start justify-between gap-3">
-                  <p className="font-mono text-[9px] uppercase tracking-[0.1em]" style={{ color }}>{stage.label}</p>
-                  <span className="rounded-full px-2 py-1 font-mono text-[9px] font-semibold" style={{ color, backgroundColor: `${color}16` }}>{stage.signal}</span>
-                </div>
-                <div className="mt-5 flex h-11 w-11 items-center justify-center rounded-[10px]" style={{ color, backgroundColor: `${color}16` }}>{stageIcons[stage.id]}</div>
-                <h3 className="mt-4 text-base font-semibold leading-5">{stage.title}</h3>
-                <p className="mt-2 text-xs leading-5 text-[#74808a]">{stage.summary}</p>
-                {index < benchmarkJourney.length - 1 && <ArrowRight className="absolute -right-3 top-1/2 z-10 hidden bg-[#f5f2ea] text-[#9aa0a0] lg:block" size={17} />}
-              </div>
-            )
-          })}
-        </div>
-
-        <div className="mt-8 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="surface-panel bg-[#fffdf8] p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#2f8175]">current snapshot / TabArena</p>
-                <h3 className="mt-1 text-lg font-semibold">Recent TFMs clear the tree baselines</h3>
-              </div>
-              <span className="rounded-full bg-[#dfeee7] px-3 py-1.5 font-mono text-[10px] font-semibold text-[#2f8175]">higher Elo = better</span>
-            </div>
-            <div className="mt-7 grid gap-5">
-              {scoreRows.map((row) => <BenchmarkJourneyBar key={row.model} row={row} maxElo={maxElo} />)}
-            </div>
-            <p className="mt-6 border-t border-[#1e2a35]/10 pt-4 text-[10px] leading-5 text-[#8a9295]">Reported regimes stay visible: TabPFN-3 and TabICLv2 are default checkpoints; CatBoost, XGBoost and Linear are tuned ensembles.</p>
-          </div>
-
-          <div className="surface-panel bg-[#1e2a35] p-5 text-[#f5f2ea]">
-            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#f6c34a]">the takeaway</p>
-            <p className="mt-4 font-serif text-3xl leading-[1.02]">Pretraining makes neural methods competitive on tables.</p>
-            <div className="mt-7 grid grid-cols-2 gap-3">
-              <JourneyMetric label="vs CatBoost" value={`+${(tabPfn3?.elo ?? 0) - (catBoost?.elo ?? 0)}`} />
-              <JourneyMetric label="vs XGBoost" value={`+${(tabPfn3?.elo ?? 0) - (xgBoost?.elo ?? 0)}`} />
-            </div>
-            <p className="mt-6 border-t border-white/12 pt-4 text-xs leading-5 text-[#bbc4c4]">One caveat: a four-hour tuned AutoGluon extreme ensemble reaches 1695 Elo. The claim is about the changing baseline, not a universal win in every regime.</p>
-          </div>
-        </div>
-      </div>
-    </SlideFrame>
-  )
-}
-
-function BenchmarkJourneyBar({ row, maxElo }: { row: BenchmarkRow; maxElo: number }) {
-  const isFoundationModel = row.family === 'TabPFN' || row.family === 'TabICL'
-  const color = isFoundationModel ? '#2f8175' : row.family === 'Linear' ? '#3869a8' : '#c78924'
-  return (
-    <div>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs font-semibold">{row.model}</span>
-        <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-[#8a9295]">{row.regime} / {row.elo} Elo</span>
-      </div>
-      <div className="mt-2 h-3 overflow-hidden rounded-full bg-[#e8e5dc]"><motion.div className="h-full rounded-full" style={{ backgroundColor: color }} initial={{ width: 0 }} animate={{ width: `${(row.elo / maxElo) * 100}%` }} transition={{ duration: 0.45 }} /></div>
-    </div>
-  )
-}
-
-function JourneyMetric({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-[10px] border border-white/12 bg-white/6 p-3"><p className="font-mono text-[9px] uppercase tracking-[0.08em] text-[#aeb8b8]">{label}</p><p className="mt-2 font-serif text-3xl text-[#f6c34a]">{value}</p><p className="mt-1 font-mono text-[9px] uppercase tracking-[0.08em] text-[#8f9b9c]">Elo</p></div>
-}
-
-function BenchmarkMethodology({ note, benchmarkKey }: { note: typeof benchmarkNotes[BenchmarkKey]; benchmarkKey: BenchmarkKey }) {
-  const tabPfn3 = tabArenaSnapshot.find((row) => row.model === 'TabPFN-3')
-  const catBoost = tabArenaSnapshot.find((row) => row.model === 'CatBoost')
-  const xgBoost = tabArenaSnapshot.find((row) => row.model === 'XGBoost')
-  const tabPfn3Elo = tabPfn3?.elo ?? 0
-  const catBoostElo = catBoost?.elo ?? 0
-  const xgBoostElo = xgBoost?.elo ?? 0
-
-  return (
-    <div className="surface-panel bg-[#1e2a35] p-5 text-[#f5f2ea]">
-      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#f6c34a]">{note.title} / method</p>
-      <p className="mt-4 text-sm leading-6 text-[#d6dddd]">{note.summary}</p>
-      <div className="mt-6 grid gap-3">{note.protocol.map((item) => <div key={item} className="flex gap-3 text-xs leading-5 text-[#bbc4c4]"><Check size={14} className="mt-0.5 shrink-0 text-[#f6c34a]" />{item}</div>)}</div>
-      {benchmarkKey === 'tabArena' && (
-        <>
-          <div className="mt-6 border-t border-[#f6c34a]/30 pt-5">
-            <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#f6c34a]">signal in this snapshot</p>
-            <p className="mt-2 text-sm leading-6 text-[#f5f2ea]">Default TabPFN-3 is {tabPfn3Elo - catBoostElo} Elo ahead of CatBoost and {tabPfn3Elo - xgBoostElo} Elo ahead of XGBoost. That is a clear foundation-model lead over strong tree-based ML baselines; the tuned AutoGluon ensemble is a separate, higher-compute regime.</p>
-          </div>
-          <div className="mt-6 border-t border-white/12 pt-5 text-xs leading-5 text-[#aeb8b8]">A lower improvability score means a model is closer to the best method on each dataset. Elo is a pairwise rating; it is not an accuracy percentage.</div>
-        </>
-      )}
-    </div>
-  )
-}
-
-function BenchmarkBar({ row, metric, maxValue }: { row: BenchmarkRow; metric: 'elo' | 'improvability'; maxValue: number }) {
-  const value = metric === 'elo' ? row.elo : row.improvability
-  const width = metric === 'elo' ? ((value - 1150) / (maxValue - 1150)) * 100 : ((maxValue - value) / maxValue) * 100
-  const color = row.family === 'TabPFN' ? '#d95b46' : row.family === 'TabICL' ? '#4775b3' : row.family === 'Tree / AutoML' ? '#c78924' : '#3e8d7e'
-  return <div><div className="flex flex-wrap items-center justify-between gap-2"><span className="text-xs font-semibold">{row.model}</span><span className="font-mono text-[9px] uppercase tracking-[0.08em] text-[#8a9295]">{row.regime} / {metric === 'elo' ? `${row.elo} Elo` : `${row.improvability}% gap`}</span></div><div className="mt-2 h-3 overflow-hidden rounded-full bg-[#e8e5dc]"><motion.div className="h-full rounded-full" style={{ backgroundColor: color }} initial={{ width: 0 }} animate={{ width: `${Math.max(8, Math.min(100, width))}%` }} /></div><p className="mt-1 text-[10px] text-[#8a9295]">{row.note}</p></div>
-}
-
-function BenchmarkSummary({ benchmarkKey, note }: { benchmarkKey: BenchmarkKey; note: typeof benchmarkNotes[BenchmarkKey] }) {
-  const values = benchmarkKey === 'talent' ? [['datasets', '300'], ['binary', '120'], ['multiclass', '80'], ['regression', '100']] : [['datasets', 'OpenML suites'], ['training', 'one pass'], ['baselines', 'trees + AutoML'], ['focus', 'small data']]
-  return <div><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#a36b13]">{note.title} / what to read</p><p className="mt-3 text-sm leading-6 text-[#53606a]">{note.summary}</p><div className="mt-7 grid gap-3 sm:grid-cols-2">{values.map(([label, value]) => <div key={label} className="rounded-[10px] border border-[#1e2a35]/10 bg-[#f5f2ea] p-4"><p className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#8a9295]">{label}</p><p className="mt-2 font-serif text-2xl">{value}</p></div>)}</div><div className="mt-7 rounded-[10px] bg-[#e4edf8] p-4 text-xs leading-5 text-[#3869a8]">Use these suites to ask whether a model&apos;s advantage survives a change in dataset size, task type, feature mix, and evaluation metric. No single aggregate rank answers all four.</div></div>
-}
-
-function EvidenceSlide() {
-  return <SlideFrame number="07" kicker="Evidence / the comparison table" tone="cobalt"><div className="slide-wide"><div className="grid gap-7 lg:grid-cols-[1fr_0.7fr] lg:items-end"><div><h2 className="slide-title">The family resemblance is real. The trade-offs are not.</h2><p className="slide-lead">This table is the compact reference after the lesson. “Maximum” means the recommended or benchmark-validated envelope reported by the source, not a universal hard limit.</p></div><div className="rounded-[14px] border border-[#a8c4e6] bg-[#e4edf8] p-5 text-sm leading-6 text-[#3869a8]"><span className="font-semibold">Read across.</span> Row attention asks whether examples interact. Column attention asks whether values in the same feature interact. ICL asks whether a new query reads a labeled context.</div></div><div className="mt-8 overflow-x-auto rounded-[14px] border border-[#1e2a35]/10 bg-[#fffdf8] p-5"><table className="min-w-[1180px] w-full border-collapse text-left text-xs"><thead><tr className="border-b border-[#1e2a35]/12 font-mono text-[9px] uppercase tracking-[0.08em] text-[#8a9295]"><th className="pb-4 pr-4">model</th><th className="pb-4 pr-4">row attention</th><th className="pb-4 pr-4">column attention</th><th className="pb-4 pr-4">tasks</th><th className="pb-4 pr-4">maximum input</th><th className="pb-4 pr-4">maximum output</th><th className="pb-4">main innovation</th></tr></thead><tbody>{modelMatrix.map((row) => <tr key={row.model} className="border-b border-[#1e2a35]/8 align-top last:border-0"><td className="py-4 pr-4"><span className="font-semibold">{row.model}</span><span className="mt-1 block font-mono text-[9px] uppercase tracking-[0.08em] text-[#8a9295]">{row.family}</span></td><td className="py-4 pr-4 leading-5">{row.rowAttention}</td><td className="py-4 pr-4 leading-5">{row.columnAttention}</td><td className="py-4 pr-4 leading-5">{row.tasks}</td><td className="py-4 pr-4 leading-5">{row.maxInput}</td><td className="py-4 pr-4 leading-5">{row.maxOutput}</td><td className="py-4 leading-5 text-[#53606a]">{row.innovation}</td></tr>)}</tbody></table></div><div className="mt-7 grid gap-4 md:grid-cols-3"><ReferenceCard label="row attention" title="Examples exchange information" text="TabPFN v1 treats rows as tokens; later compressed models use row attention after feature embeddings." icon={<Network size={17} />} color="#d95b46" /><ReferenceCard label="column attention" title="A feature learns its distribution" text="TabPFNv2 alternates feature attention; TabICL and TabPFN-3 use inducing attention over columns or cells." icon={<Layers3 size={17} />} color="#3e8d7e" /><ReferenceCard label="output space" title="Classification is not the whole story" text="The papers cover class probabilities, regression distributions, quantiles, many-class decoding, and reusable embeddings." icon={<Target size={17} />} color="#4775b3" /></div><div className="mt-9"><div className="flex items-center justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#74808a]">public reading shelf</p><h3 className="mt-2 font-serif text-3xl">The six source papers</h3></div><BookOpen className="text-[#3869a8]" size={23} /></div><div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{papers.map((paper) => <a key={paper.id} href={paper.sourceUrl} target="_blank" rel="noreferrer" className="group rounded-[12px] border border-[#1e2a35]/10 bg-[#fffdf8] p-4 transition-transform hover:-translate-y-0.5"><div className="flex items-center justify-between gap-2"><span className="font-mono text-[9px] uppercase tracking-[0.08em] text-[#3869a8]">{paper.status}</span><ExternalLink size={13} className="text-[#a4a9aa] transition-colors group-hover:text-[#3869a8]" /></div><p className="mt-3 text-sm font-semibold leading-5">{paper.title}</p><p className="mt-2 font-mono text-[9px] text-[#8a9295]">{paper.file} / {paper.date}</p></a>)}</div></div></div></SlideFrame>
-}
-
-function DetailedEvidenceTable() {
-  return <div className="mx-auto mt-8 max-w-[1500px] px-5 pb-12 lg:px-10"><div className="overflow-x-auto rounded-[14px] border border-[#1e2a35]/10 bg-[#ebe7dc] p-5"><div className="flex items-end justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#3869a8]">full reference fields</p><p className="mt-2 text-lg font-semibold">Architecture, capability, and operating envelope</p></div><span className="hidden font-mono text-[9px] uppercase tracking-[0.08em] text-[#8a9295] sm:block">horizontal scroll on narrow screens</span></div><table className="mt-5 min-w-[1900px] w-full border-collapse text-left text-[11px]"><thead><tr className="border-b border-[#1e2a35]/12 font-mono text-[9px] uppercase tracking-[0.08em] text-[#8a9295]"><th className="pb-4 pr-4">model / source</th><th className="pb-4 pr-4">row attention</th><th className="pb-4 pr-4">column attention</th><th className="pb-4 pr-4">ICL location</th><th className="pb-4 pr-4">compression</th><th className="pb-4 pr-4">classification</th><th className="pb-4 pr-4">regression</th><th className="pb-4 pr-4">rows</th><th className="pb-4 pr-4">columns</th><th className="pb-4 pr-4">native classes / output</th><th className="pb-4 pr-4">regression form</th><th className="pb-4">missing / categorical</th></tr></thead><tbody>{modelMatrix.map((row) => <tr key={row.model} className="border-b border-[#1e2a35]/8 align-top last:border-0"><td className="py-4 pr-4"><span className="font-semibold">{row.model}</span><span className="mt-1 block font-mono text-[9px] uppercase tracking-[0.08em] text-[#3869a8]">{row.sourceStatus}</span></td><td className="py-4 pr-4 leading-5">{row.rowAttention}</td><td className="py-4 pr-4 leading-5">{row.columnAttention}</td><td className="py-4 pr-4 leading-5">{row.iclStage}</td><td className="py-4 pr-4 leading-5">{row.compression}</td><td className="py-4 pr-4 leading-5">{row.classification}</td><td className="py-4 pr-4 leading-5">{row.regression}</td><td className="py-4 pr-4 leading-5">{row.recommendedRows}</td><td className="py-4 pr-4 leading-5">{row.recommendedColumns}</td><td className="py-4 pr-4 leading-5">{row.nativeClassLimit}</td><td className="py-4 pr-4 leading-5">{row.regressionOutput}</td><td className="py-4 leading-5 text-[#53606a]">{row.missingCategorical}</td></tr>)}</tbody></table><p className="mt-5 text-[10px] leading-5 text-[#74808a]">Source status identifies the paper or report lineage represented here. The envelopes are reported recommendations or validated experiments, not absolute technical impossibilities.</p></div></div>
-}
-
-function SlideFrame({ number: legacyNumber, kicker, tone, children }: { number: string; kicker: string; tone: 'coral' | 'yellow' | 'mint' | 'cobalt'; children: ReactNode }) {
-  const palette = { coral: ['#d64e3b', '#fbe4dc'], yellow: ['#a36b13', '#f8edc9'], mint: ['#2f8175', '#dfeee7'], cobalt: ['#3869a8', '#e4edf8'] }[tone]
-  const number = ({ '01': '02', '02': '03', '03': '04', '04': '05', '05': '06', '06': '01', '07': '07' } as Record<string, string>)[legacyNumber] ?? legacyNumber
-  return <div className="mx-auto flex min-h-full max-w-[1500px] flex-col px-5 py-8 lg:px-10 lg:py-12"><div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.15em] text-[#74808a]"><span className="flex h-7 w-7 items-center justify-center rounded-full border text-[9px] font-semibold" style={{ borderColor: palette[0], color: palette[0] }}>{number}</span><span>{kicker}</span><span className="h-px w-12 bg-[#1e2a35]/15" /></div><div className="mt-7 flex-1">{children}</div>{number === '07' && <DetailedEvidenceTable />}</div>
-}
-
-function AnalogyCard({ icon, title, formula, text, tone }: { icon: ReactNode; title: string; formula: string; text: string; tone: 'coral' | 'cobalt' }) {
-  const color = tone === 'coral' ? '#d64e3b' : '#3869a8'
-  const background = tone === 'coral' ? '#fbe4dc' : '#e4edf8'
-  return <div className="rounded-[12px] border border-[#1e2a35]/10 bg-[#fffdf8] p-4"><div className="flex items-center gap-2 text-sm font-semibold"><span className="flex h-8 w-8 items-center justify-center rounded-[8px]" style={{ color, backgroundColor: background }}>{icon}</span>{title}</div><div className="mt-3 overflow-x-auto"><BlockMath math={formula} /></div><p className="text-xs leading-5 text-[#74808a]">{text}</p></div>
-}
-
-function Slider({ label, value, min, max, step, onChange, suffix, hint }: { label: string; value: number; min: number; max: number; step: number; onChange: (value: number) => void; suffix: string; hint?: string }) {
-  return <label className="block"><span className="flex items-center justify-between gap-3 text-xs font-semibold text-[#53606a]"><span>{label}</span><output className="font-mono text-[10px] text-[#1e2a35]">{suffix}</output></span><input aria-label={label} className="range-input mt-3 w-full" type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} /><span className="mt-2 block text-[10px] leading-4 text-[#8a9295]">{hint}</span></label>
-}
-
-function DetailBox({ label, value }: { label: string; value: string }) {
-  return <div><p className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#8a9295]">{label}</p><p className="mt-2 text-xs leading-5 text-[#53606a]">{value}</p></div>
-}
-
-function MetricCard({ title, value, text, color, icon }: { title: string; value: string; text: string; color: string; icon: ReactNode }) {
-  return <div className="rounded-[12px] border border-[#1e2a35]/10 bg-[#fffdf8] p-4"><div className="flex items-center justify-between gap-3"><p className="font-mono text-[9px] uppercase tracking-[0.1em]" style={{ color }}>{title}</p><span style={{ color }}>{icon}</span></div><p className="mt-3 font-serif text-2xl">{value}</p><p className="mt-2 text-xs leading-5 text-[#74808a]">{text}</p></div>
-}
-
-function MethodStep({ number, title, text, icon }: { number: string; title: string; text: string; icon: ReactNode }) {
-  return <div className="rounded-[12px] border border-[#1e2a35]/10 bg-[#fffdf8] p-4"><div className="flex items-center justify-between"><span className="font-mono text-[9px] text-[#d64e3b]">{number}</span><span className="text-[#a36b13]">{icon}</span></div><p className="mt-3 text-sm font-semibold">{title}</p><p className="mt-2 text-xs leading-5 text-[#74808a]">{text}</p></div>
-}
-
-function ReferenceCard({ label, title, text, icon, color }: { label: string; title: string; text: string; icon: ReactNode; color: string }) {
-  return <div className="rounded-[12px] border border-[#1e2a35]/10 bg-[#fffdf8] p-4"><div className="flex items-center justify-between gap-3"><p className="font-mono text-[9px] uppercase tracking-[0.1em]" style={{ color }}>{label}</p><span style={{ color }}>{icon}</span></div><p className="mt-3 text-sm font-semibold">{title}</p><p className="mt-2 text-xs leading-5 text-[#74808a]">{text}</p></div>
 }

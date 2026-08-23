@@ -1,6 +1,6 @@
 # Table Sense
 
-Table Sense is an interactive learning lab for tabular foundation models. It is organized as a seven-slide deck: the table prompt, synthetic priors, attention mechanics, architecture lineage, predictive distributions, benchmark methodology, and a paper-backed comparison table. The examples use claims frequency and severity so the context-query contract is concrete for actuarial readers without presenting a production pricing model.
+Table Sense is an interactive learning lab for tabular foundation models. It is organized as an eight-slide deck: the table prompt, the posterior predictive distribution, synthetic priors, attention mechanics, architecture lineage, predictive distributions, benchmark methodology, and a paper-backed comparison table. The examples use claims frequency and severity so the context-query contract is concrete for actuarial readers without presenting a production pricing model.
 
 ## Run locally
 

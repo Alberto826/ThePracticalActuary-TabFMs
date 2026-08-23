@@ -40,6 +40,7 @@ body {
 .deck-main {
   min-height: 0;
   flex: 1 1 auto;
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -90,6 +91,7 @@ body {
 
 .slide-two-column > *,
 .slide-wide > *,
+.slide-wide .grid > *,
 .surface-panel > * {
   min-width: 0;
 }
@@ -182,6 +184,10 @@ input:focus-visible {
   overflow-x: auto;
   overflow-y: hidden;
   padding: 0.25rem 0;
+}
+
+.formula-wrap .katex-display {
+  overflow-x: hidden;
 }
 
 @media (prefers-reduced-motion: reduce) {
