@@ -146,7 +146,7 @@ input:focus-visible {
   appearance: none;
   height: 4px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #4775b3 0%, #4775b3 50%, #d9d6cc 50%, #d9d6cc 100%);
+  background: linear-gradient(90deg, #4775b3 0%, #4775b3 var(--range-progress, 50%), #d9d6cc var(--range-progress, 50%), #d9d6cc 100%);
   accent-color: #4775b3;
 }
 
@@ -170,7 +170,7 @@ input:focus-visible {
 }
 
 .range-input.range-dark {
-  background: linear-gradient(90deg, #f6c34a 0%, #f6c34a 50%, rgba(255, 255, 255, 0.18) 50%, rgba(255, 255, 255, 0.18) 100%);
+  background: linear-gradient(90deg, #f6c34a 0%, #f6c34a var(--range-progress, 50%), rgba(255, 255, 255, 0.18) var(--range-progress, 50%), rgba(255, 255, 255, 0.18) 100%);
   accent-color: #f6c34a;
 }
 

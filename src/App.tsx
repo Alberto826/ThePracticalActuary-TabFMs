@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { type CSSProperties, useEffect, useState } from 'react'
 import { BlockMath } from 'react-katex'
 import { scaleBand, scaleLinear } from 'd3-scale'
 import {
@@ -536,7 +536,8 @@ function Stat({ value, label }: { value: string; label: string }) {
 }
 
 function RangeControl({ label, value, min, max, step, onChange, suffix, hint, dark = false }: { label: string; value: number; min: number; max: number; step: number; onChange: (value: number) => void; suffix: string; hint?: string; dark?: boolean }) {
-  return <label className="block"><span className={`flex items-center justify-between gap-3 text-xs font-semibold ${dark ? 'text-[#d6dddd]' : 'text-[#53606a]'}`}><span>{label}</span><output className={`font-mono text-[10px] ${dark ? 'text-[#f6c34a]' : 'text-[#1e2a35]'}`}>{suffix}</output></span><input aria-label={label} className={`range-input mt-3 w-full ${dark ? 'range-dark' : ''}`} type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} /><span className={`mt-2 block text-[10px] leading-4 ${dark ? 'text-[#8f9b9c]' : 'text-[#8a9295]'}`}>{hint}</span></label>
+  const progress = max === min ? 0 : Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100))
+  return <label className="block"><span className={`flex items-center justify-between gap-3 text-xs font-semibold ${dark ? 'text-[#d6dddd]' : 'text-[#53606a]'}`}><span>{label}</span><output className={`font-mono text-[10px] ${dark ? 'text-[#f6c34a]' : 'text-[#1e2a35]'}`}>{suffix}</output></span><input aria-label={label} className={`range-input mt-3 w-full ${dark ? 'range-dark' : ''}`} style={{ '--range-progress': `${progress}%` } as CSSProperties} type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} /><span className={`mt-2 block text-[10px] leading-4 ${dark ? 'text-[#8f9b9c]' : 'text-[#8a9295]'}`}>{hint}</span></label>
 }
 
 function ProbabilityBar({ label, value, color }: { label: string; value: number; color: string }) {

@@ -16,7 +16,7 @@ export function PosteriorPredictiveSlide() {
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div>
             <h2 className="slide-title">Bayesian prediction averages over the tasks that remain <em>plausible.</em></h2>
-            <p className="slide-lead max-w-3xl">The paper frames supervised prediction as a Bayesian problem, then shows how a Prior-Data Fitted Network can learn the resulting distribution directly from sampled tasks and datasets.</p>
+            <p className="slide-lead max-w-3xl">The paper "Transformers Can Do Bayesian Inference" (Müller et al, 2022) frames supervised prediction as a Bayesian problem, then shows how a Prior-Data Fitted Network can learn the resulting distribution directly from sampled tasks and datasets.</p>
           </div>
           <a href="https://arxiv.org/html/2112.10510v7" target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-full bg-[#1e2a35] px-4 py-3 text-xs font-semibold text-[#f5f2ea] hover:bg-[#3869a8]">paper / sections 2-3 <ExternalLink size={14} /></a>
         </div>
@@ -30,18 +30,18 @@ export function PosteriorPredictiveSlide() {
             <span className="rounded-full bg-[#fffdf8] px-3 py-1.5 font-mono text-[10px] font-semibold text-[#3869a8]">posterior predictive distribution</span>
           </div>
           <p className="mt-4 max-w-4xl text-sm leading-6 text-[#53606a]">In this work, we model the output <InlineMath math={String.raw`y`} /> for a new input <InlineMath math={String.raw`x`} /> based on a supervised dataset of arbitrary size <InlineMath math={String.raw`n`} />. The dataset is a collection of observed input-output pairs:</p>
-          <div className="mt-4 overflow-hidden rounded-[10px] bg-[#fffdf8] px-4 py-3 text-[#1e2a35]"><p className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#8a9295]">supervised dataset</p><ResponsiveMath className="mt-1" desktop={String.raw`\mathcal{D}=\{(x_i,y_i)\}_{i=1}^{n}`} mobile={String.raw`\mathcal{D}=\{(x_i,y_i)\}_{i=1}^{n}`} /><p className="text-xs leading-5 text-[#53606a]">Here <InlineMath math={String.raw`y_i`} /> is the output observed for <InlineMath math={String.raw`x_i`} />.</p></div>
-          <div className="mt-4 grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="overflow-hidden rounded-[10px] bg-[#fffdf8] px-4 py-3 text-[#1e2a35]"><p className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#8a9295]">supervised dataset</p><ResponsiveMath className="mt-1" desktop={String.raw`\mathcal{D}=\{(x_i,y_i)\}_{i=1}^{n}`} mobile={String.raw`\mathcal{D}=\{(x_i,y_i)\}_{i=1}^{n}`} /><p className="text-xs leading-5 text-[#53606a]">Here <InlineMath math={String.raw`y_i`} /> is the output observed for <InlineMath math={String.raw`x_i`} />.</p></div>
             <div className="rounded-[10px] border border-[#a8c4e6] bg-[#f8fbff] p-4">
               <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#3869a8]">Bayesian update</p>
               <p className="mt-2 text-xs leading-5 text-[#53606a]">We place a prior <InlineMath math={String.raw`p(\phi)`} /> over the latent variable <InlineMath math={String.raw`\phi`} />, the hidden rulebook or data-generating function. After observing <InlineMath math={String.raw`\mathcal{D}`} />, Bayes&apos; theorem gives the posterior:</p>
               <ResponsiveMath className="mt-2" desktop={String.raw`p(\phi\mid\mathcal{D})\propto p(\mathcal{D}\mid\phi)\,p(\phi)`} mobile={String.raw`\begin{aligned}p(\phi\mid\mathcal{D})&\propto p(\mathcal{D}\mid\phi)\\&\quad{}\times p(\phi)\end{aligned}`} />
             </div>
-            <div className="rounded-[10px] border border-[#3869a8]/25 bg-[#fffdf8] p-4">
-              <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#3869a8]">the PPD equation</p>
-              <p className="mt-2 text-xs leading-5 text-[#53606a]">The crucial distribution for prediction averages the task-specific predictions using the posterior weight of each task:</p>
-              <AnnotatedPPDFormula />
-            </div>
+          </div>
+          <div className="mt-4 rounded-[10px] border border-[#3869a8]/25 bg-[#fffdf8] p-4">
+            <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#3869a8]">the PPD equation</p>
+            <p className="mt-2 text-xs leading-5 text-[#53606a]">The crucial distribution for prediction averages the task-specific predictions using the posterior weight of each task:</p>
+            <AnnotatedPPDFormula />
           </div>
           <p className="mt-4 border-t border-[#3869a8]/20 pt-4 text-sm leading-6 text-[#53606a]"><span className="font-semibold text-[#3869a8]">Interpretation:</span> the integral carries uncertainty about which hidden rulebook generated the data into the prediction for the new input. A PPD is not one best task; it is the distribution of predictions after averaging over plausible tasks.</p>
         </section>
@@ -74,6 +74,7 @@ export function PosteriorPredictiveSlide() {
               <DerivationStep number="2" label="factor out the data and query" formula={String.raw`=-\int_{\mathcal{D},x}p(x,\mathcal{D})\int_y p(y\mid x,\mathcal{D})\log q_\theta(y\mid x,\mathcal{D})`} mobileFormula={String.raw`\begin{aligned}&=-\int_{\mathcal{D},x}p(x,\mathcal{D})\\&\quad{}\times\int_y p(y\mid x,\mathcal{D})\\&\quad{}\times\log q_\theta(y\mid x,\mathcal{D})\end{aligned}`} />
               <DerivationStep number="3" label="recognize cross-entropy" formula={String.raw`=\int_{\mathcal{D},x}p(x,\mathcal{D})H\left(p(\cdot\mid x,\mathcal{D}),q_\theta(\cdot\mid x,\mathcal{D})\right)`} mobileFormula={String.raw`\begin{aligned}&=\int_{\mathcal{D},x}p(x,\mathcal{D})\\&\quad{}\times H\bigl(p(\cdot\mid x,\mathcal{D}),\\&\qquad q_\theta(\cdot\mid x,\mathcal{D})\bigr)\end{aligned}`} />
               <DerivationStep number="4" label="rewrite as an expectation over prior-data" formula={String.raw`=\mathbb{E}_{x,\mathcal{D}\sim p(\mathcal{D})}\left[H\left(p(\cdot\mid x,\mathcal{D}),q_\theta(\cdot\mid x,\mathcal{D})\right)\right]`} mobileFormula={String.raw`\begin{aligned}&=\mathbb{E}_{x,\mathcal{D}\sim p(\mathcal{D})}\\&\quad{}[H\bigl(p(\cdot\mid x,\mathcal{D}),\\&\qquad q_\theta(\cdot\mid x,\mathcal{D})\bigr)]\end{aligned}`} />
+              <DerivationStep number="5" label="decompose into entropy plus Kullback-Leibler (KL) divergence" formula={String.raw`=\mathbb{E}_{x,\mathcal{D}\sim p(\mathcal{D})}\left[H\left(p(\cdot\mid x,\mathcal{D})\right)+\mathrm{KL}\left(p(\cdot\mid x,\mathcal{D})\parallel q_\theta(\cdot\mid x,\mathcal{D})\right)\right]`} mobileFormula={String.raw`\begin{aligned}&=\mathbb{E}_{x,\mathcal{D}\sim p(\mathcal{D})}\bigl[H\bigl(p(\cdot\mid x,\mathcal{D})\bigr)\\&\quad{}+\mathrm{KL}\bigl(p(\cdot\mid x,\mathcal{D})\\&\qquad{}\parallel q_\theta(\cdot\mid x,\mathcal{D})\bigr)\bigr]\end{aligned}`} />
             </div>
             <p className="mt-4 border-t border-[#1e2a35]/10 pt-4 text-sm leading-6 text-[#53606a]"><span className="font-semibold text-[#2f8175]">Consequence:</span> minimizing the Prior-Data NLL trains the PFN to match the full predictive distribution, not merely its most likely answer.</p>
           </div>
@@ -86,7 +87,19 @@ export function PosteriorPredictiveSlide() {
 }
 
 function AnnotatedPPDFormula() {
-  return <div className="mt-4 rounded-[10px] bg-[#f5f2ea] p-3"><div className="grid grid-cols-2 gap-2 sm:grid-cols-4"><VariableAnnotation symbol={String.raw`y`} label="output" description="for the new input" tone="coral" /><VariableAnnotation symbol={String.raw`x`} label="new input" description="the query" tone="cobalt" /><VariableAnnotation symbol={String.raw`\phi`} label="latent task" description="hidden rulebook / generator" tone="yellow" /><VariableAnnotation symbol={String.raw`\mathcal{D}`} label="dataset" description="observed labeled pairs" tone="mint" /></div><ResponsiveMath className="mt-2 rounded-[8px] bg-[#fffdf8] px-2 py-4" desktop={String.raw`p(\color{#d64e3b}{y}\mid\color{#3869a8}{x},\color{#2f8175}{\mathcal{D}})=\int_{\color{#a36b13}{\phi}}p(\color{#d64e3b}{y}\mid\color{#3869a8}{x},\color{#a36b13}{\phi})\,p(\color{#a36b13}{\phi}\mid\color{#2f8175}{\mathcal{D}})\,d\color{#a36b13}{\phi}`} mobile={String.raw`\begin{aligned}p(\color{#d64e3b}{y}\mid\color{#3869a8}{x},\color{#2f8175}{\mathcal{D}})&=\int_{\color{#a36b13}{\phi}}p(\color{#d64e3b}{y}\mid\color{#3869a8}{x},\color{#a36b13}{\phi})\\&\quad{}\times p(\color{#a36b13}{\phi}\mid\color{#2f8175}{\mathcal{D}})\,d\color{#a36b13}{\phi}\end{aligned}`} /><p className="mt-2 text-center text-[10px] leading-4 text-[#74808a]">Arrows point from each definition to its color-matched variable in the equation.</p></div>
+  return <div className="mt-4 rounded-[10px] bg-[#f5f2ea] p-3">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <VariableAnnotation symbol={String.raw`y`} label="output" description="for the new input" tone="coral" />
+      <VariableAnnotation symbol={String.raw`x`} label="new input" description="the query" tone="cobalt" />
+      <VariableAnnotation symbol={String.raw`\phi`} label="latent task" description="hidden rulebook / generator" tone="yellow" />
+      <VariableAnnotation symbol={String.raw`\mathcal{D}`} label="dataset" description="observed labeled pairs" tone="mint" />
+    </div>
+    <ResponsiveMath className="mt-2 rounded-[8px] bg-[#fffdf8] px-2 py-4" desktop={String.raw`p(\color{#d64e3b}{y}\mid\color{#3869a8}{x},\color{#2f8175}{\mathcal{D}})
+        =\int_{\color{#a36b13}{\phi}}p(\color{#d64e3b}{y}\mid\color{#3869a8}{x},\color{#2f8175}{\mathcal{D}},\color{#a36b13}{\phi})\,p(\color{#a36b13}{\phi}\mid\color{#2f8175}{\mathcal{D}})\,d\color{#a36b13}{\phi} \\
+        =\int_{\color{#a36b13}{\phi}}p(\color{#d64e3b}{y}\mid\color{#3869a8}{x},\color{#a36b13}{\phi})\,p(\color{#a36b13}{\phi}\mid\color{#2f8175}{\mathcal{D}})\,d\color{#a36b13}{\phi}`}
+        mobile={String.raw`\begin{aligned}p(\color{#d64e3b}{y}\mid\color{#3869a8}{x},\color{#2f8175}{\mathcal{D}})&=\int_{\color{#a36b13}{\phi}}p(\color{#d64e3b}{y}\mid\color{#3869a8}{x},\color{#a36b13}{\phi})\\&\quad{}\times p(\color{#a36b13}{\phi}\mid\color{#2f8175}{\mathcal{D}})\,d\color{#a36b13}{\phi}\end{aligned}`} />
+    <p className="mt-2 text-center text-[10px] leading-4 text-[#74808a]">Arrows point from each definition to its color-matched variable in the equation.</p>
+  </div>
 }
 
 function VariableAnnotation({ symbol, label, description, tone }: { symbol: string; label: string; description: string; tone: keyof typeof notationStyles }) {

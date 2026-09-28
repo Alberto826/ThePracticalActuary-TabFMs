@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 
 export function SlideFrame({
   number: legacyNumber,
@@ -19,7 +19,8 @@ export function SlideFrame({
 }
 
 export function Slider({ label, value, min, max, step, onChange, suffix, hint }: { label: string; value: number; min: number; max: number; step: number; onChange: (value: number) => void; suffix: string; hint?: string }) {
-  return <label className="block"><span className="flex items-center justify-between gap-3 text-xs font-semibold text-[#53606a]"><span>{label}</span><output className="font-mono text-[10px] text-[#1e2a35]">{suffix}</output></span><input aria-label={label} className="range-input mt-3 w-full" type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} /><span className="mt-2 block text-[10px] leading-4 text-[#8a9295]">{hint}</span></label>
+  const progress = max === min ? 0 : Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100))
+  return <label className="block"><span className="flex items-center justify-between gap-3 text-xs font-semibold text-[#53606a]"><span>{label}</span><output className="font-mono text-[10px] text-[#1e2a35]">{suffix}</output></span><input aria-label={label} className="range-input mt-3 w-full" style={{ '--range-progress': `${progress}%` } as CSSProperties} type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} /><span className="mt-2 block text-[10px] leading-4 text-[#8a9295]">{hint}</span></label>
 }
 
 export const formatPercent = (value: number) => `${Math.round(value * 100)}%`

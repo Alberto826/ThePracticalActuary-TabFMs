@@ -1,42 +1,115 @@
+import type { ReactNode } from 'react'
 import { BlockMath } from 'react-katex'
-import { ArrowRight, Pause, Play } from 'lucide-react'
+import { ArrowRight, Layers3, Network, Pause, Play, Table2 } from 'lucide-react'
 import { motion } from 'motion/react'
 import { equations } from '../content/equations'
-import { attentionForQuery } from '../lib/simulations'
 import { SlideFrame } from './shared'
 
 export type AttentionPhase = 'column' | 'row' | 'alternating' | 'icl'
 
+type PhaseInfo = {
+  id: AttentionPhase
+  label: string
+  stage: string
+  title: string
+  explanation: string
+  formula: string
+}
+
+const phases: PhaseInfo[] = [
+  { id: 'column', label: 'TFcol', stage: 'column-wise embedding', title: 'Understand each feature across rows', explanation: 'The column stage compares values within a feature. It can learn scale, spread, missingness, and empirical distribution before the model reasons about feature combinations.', formula: equations.columnAttention },
+  { id: 'row', label: 'TFrow', stage: 'row-wise interaction', title: 'Mix features within each row', explanation: 'The row stage turns each table row into a fixed-width representation. Age, vehicle, mileage, and region can now interact inside one example.', formula: equations.rowAttention },
+  { id: 'alternating', label: 'TFcol + TFrow', stage: 'alternating views', title: 'Let information travel through the table', explanation: 'Column and row views alternate. A value can first learn what is unusual within its feature, then influence how the complete row is represented.', formula: equations.alternating },
+  { id: 'icl', label: 'TFicl', stage: 'dataset-wise ICL', title: 'Let the query read the context', explanation: 'The final stage operates on compressed row vectors. The query attends to labeled context rows while its target stays masked, then a head returns the prediction distribution.', formula: equations.tableNextLabel },
+]
+
 export function AttentionSlide({ phase, setPhase, playing, setPlaying }: { phase: AttentionPhase; setPhase: (value: AttentionPhase) => void; playing: boolean; setPlaying: (value: boolean) => void }) {
-  const phases: { id: AttentionPhase; label: string; title: string; explanation: string; formula: string }[] = [
-    { id: 'column', label: 'column attention', title: 'Look down a column', explanation: 'Cells in one feature compare across rows. The model can learn distributional facts such as scale, skew, extremes, or category patterns.', formula: equations.columnAttention },
-    { id: 'row', label: 'row attention', title: 'Look across a row', explanation: 'Features within one policyholder interact. The model can combine age, vehicle, miles, and region before asking what they imply together.', formula: equations.rowAttention },
-    { id: 'alternating', label: 'alternating attention', title: 'Column, then row, then repeat', explanation: 'TabPFN-v2 and TabPFN-2.5 alternate the two views so information can travel across the table without treating every cell as an isolated scalar.', formula: equations.alternating },
-    { id: 'icl', label: 'compression then ICL', title: 'Compress, then let the query read context', explanation: 'TabICL names its stages TFcol, TFrow, and TFicl: columns become distribution-aware embeddings, rows become fixed-width vectors, then the query reads labeled rows. A readout converts the weighted evidence into the output cell.', formula: equations.tableNextLabel },
-  ]
   const activePhase = phases.find((item) => item.id === phase) ?? phases[0]
-  const queryWeights = attentionForQuery(4, 1)
-  return <SlideFrame number="03" kicker="In context / the mechanics of attention" tone="mint"><div className="slide-two-column"><div><h2 className="slide-title">Attention is a routing rule for evidence.</h2><p className="slide-lead">The query is not “looking” in a human sense. Each attention head computes compatibility between a query vector and key vectors, then uses the resulting weights to mix value vectors.</p><div className="rounded-[14px] border border-[#a8d2c3] bg-[#dfeee7] p-5"><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#2f8175]">the shared engine</p><BlockMath math={equations.attention} /><p className="text-xs leading-5 text-[#53606a]">Large weights route more of the value information into the next representation. The mask decides which comparisons are legal.</p></div><div className="mt-5 grid gap-2">{phases.map((item) => <button key={item.id} onClick={() => setPhase(item.id)} className={`flex items-center justify-between rounded-[10px] border px-4 py-3 text-left transition-colors ${phase === item.id ? 'border-[#3e8d7e] bg-[#dfeee7]' : 'border-[#1e2a35]/10 bg-[#fffdf8] hover:bg-[#f5f2ea]'}`}><span><span className="block text-sm font-semibold">{item.label}</span><span className="mt-1 block text-xs text-[#74808a]">{item.title}</span></span><ArrowRight size={15} className={phase === item.id ? 'text-[#2f8175]' : 'text-[#a4a9aa]'} /></button>)}</div></div><div className="surface-panel bg-[#fffdf8] p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#74808a]">animated attention map</p><p className="mt-1 text-xl font-semibold">{activePhase.title}</p></div><button onClick={() => setPlaying(!playing)} className="inline-flex items-center gap-2 rounded-full bg-[#1e2a35] px-3 py-2 text-xs font-semibold text-[#f5f2ea]">{playing ? <Pause size={14} /> : <Play size={14} />} {playing ? 'pause' : 'play'} sequence</button></div><AttentionAnimation phase={phase} queryWeights={queryWeights} /><div className="mt-5 rounded-[10px] bg-[#f5f2ea] p-4"><p className="text-sm font-semibold">{activePhase.explanation}</p><div className="mt-3 overflow-x-auto"><BlockMath math={activePhase.formula} /></div></div><PredictionReadout phase={phase} /></div></div></SlideFrame>
+  const activeIndex = Math.max(0, phases.findIndex((item) => item.id === activePhase.id))
+
+  return (
+    <SlideFrame number="03" kicker="In context / the mechanics of attention" tone="mint">
+      <div className="slide-wide">
+        <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
+          <div>
+            <h2 className="slide-title">A tabular transformer builds a prediction <em>in stages.</em></h2>
+            <p className="slide-lead max-w-4xl">TabICL-style architectures do not flatten a table into one long sentence. They first understand each column, then each row, and finally let the query read the compressed context.</p>
+          </div>
+          <span className="rounded-full border border-[#a8d2c3] bg-[#dfeee7] px-3 py-2 font-mono text-[9px] uppercase tracking-[0.1em] text-[#2f8175]">TFcol · TFrow · TFicl</span>
+        </div>
+
+        <div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)]">
+          <div className="surface-panel bg-[#fffdf8] p-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#2f8175]">architecture overview</p>
+                <p className="mt-1 text-xl font-semibold">Cells become row representations, then a query prediction.</p>
+              </div>
+              <span className="rounded-full bg-[#f5f2ea] px-3 py-1.5 font-mono text-[10px] text-[#74808a]">target stays hidden</span>
+            </div>
+            <ArchitectureDiagram activeIndex={activeIndex} />
+            <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 border-t border-[#1e2a35]/10 pt-4 text-[10px] leading-5 text-[#74808a]"><span><span className="font-semibold text-[#3869a8]">vertical arrows</span> column attention</span><span><span className="font-semibold text-[#2f8175]">horizontal arrows</span> row attention</span><span><span className="font-semibold text-[#d64e3b]">coral query</span> asks for the missing target</span><span><span className="font-semibold text-[#a36b13]">yellow mask</span> blocks label leakage</span></div>
+          </div>
+
+          <div className="surface-panel bg-[#1e2a35] p-5 text-[#f5f2ea]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#8fc9bb]">stage explorer</p>
+                <p className="mt-1 text-xl font-semibold">{activePhase.title}</p>
+              </div>
+              <button onClick={() => setPlaying(!playing)} className="inline-flex shrink-0 items-center gap-2 rounded-full bg-[#f6c34a] px-3 py-2 text-xs font-semibold text-[#1e2a35]" aria-label={playing ? 'Pause architecture sequence' : 'Play architecture sequence'}>{playing ? <Pause size={14} /> : <Play size={14} />} {playing ? 'pause' : 'play'}</button>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-2" role="tablist" aria-label="Transformer architecture stages">
+              {phases.map((item, index) => <button key={item.id} onClick={() => setPhase(item.id)} role="tab" aria-selected={phase === item.id} className={`rounded-[9px] border px-3 py-2 text-left ${phase === item.id ? 'border-[#8fc9bb] bg-[#2f8175] text-[#f5f2ea]' : 'border-white/10 bg-white/5 text-[#bbc4c4] hover:bg-white/10'}`}><span className="block font-mono text-[9px] uppercase tracking-[0.08em]">{String(index + 1).padStart(2, '0')} / {item.label}</span><span className="mt-1 block text-[11px] font-semibold leading-4">{item.stage}</span></button>)}
+            </div>
+            <motion.div key={activePhase.id} className="mt-5 rounded-[10px] bg-[#f5f2ea] p-4 text-[#1e2a35]" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>
+              <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#3869a8]">what this stage contributes</p>
+              <p className="mt-2 text-sm leading-6 text-[#53606a]">{activePhase.explanation}</p>
+              <div className="mt-3 overflow-x-auto"><BlockMath math={activePhase.formula} /></div>
+            </motion.div>
+            <div className="mt-4 rounded-[10px] border border-[#f6c34a]/35 bg-[#f6c34a]/10 p-4"><p className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#f6c34a]">mask rule</p><p className="mt-2 text-xs leading-5 text-[#d6dddd]">Context labels are visible to the model. The query target is replaced by <span className="font-mono text-[#f6c34a]">?</span>, so the output cannot copy the answer.</p></div>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 border-t border-[#1e2a35]/10 pt-5 md:grid-cols-[1fr_1.35fr] md:items-center">
+          <div><p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#74808a]">the readout</p><p className="mt-1 text-lg font-semibold">The final head turns context evidence into a distribution.</p><p className="mt-2 text-sm leading-6 text-[#53606a]">Attention creates the representation. A prediction head converts the query&apos;s final vector into probabilities for the missing label.</p></div>
+          <div className="flex flex-wrap items-center justify-center gap-2 rounded-[12px] bg-[#f5f2ea] p-4 font-mono text-[10px]"><span className="rounded-full bg-[#dfeee7] px-3 py-2 text-[#2f8175]">context rows</span><ArrowRight size={15} className="text-[#3869a8]" /><span className="rounded-full bg-[#e4edf8] px-3 py-2 text-[#3869a8]">query vector</span><ArrowRight size={15} className="text-[#3869a8]" /><span className="rounded-full bg-[#fbe4dc] px-3 py-2 font-semibold text-[#d64e3b]">P(label | table)</span></div>
+        </div>
+      </div>
+    </SlideFrame>
+  )
 }
 
-function AttentionAnimation({ phase, queryWeights }: { phase: AttentionPhase; queryWeights: number[] }) {
-  const rows = ['A', 'B', 'C', 'Q']
-  const columns = ['age', 'vehicle', 'miles']
-  return <div className="mt-7 rounded-[12px] border border-[#1e2a35]/10 bg-[#f5f2ea] p-4"><div className="grid grid-cols-[34px_repeat(3,1fr)_64px] items-center gap-2 text-center font-mono text-[9px] uppercase tracking-[0.08em] text-[#8a9295]"><span />{columns.map((column) => <span key={column}>{column}</span>)}<span>output</span>{rows.map((row, rowIndex) => <div key={row} className="contents"><span className={`text-left font-semibold ${row === 'Q' ? 'text-[#3869a8]' : 'text-[#74808a]'}`}>{row}</span>{columns.map((column, columnIndex) => { const active = phase === 'column' ? columnIndex === 1 : phase === 'row' ? rowIndex === 3 : phase === 'alternating' ? (rowIndex + columnIndex) % 2 === 0 : rowIndex === 3; return <motion.span key={`${row}-${column}`} className={`flex h-12 items-center justify-center rounded-[8px] border font-mono text-[10px] transition-colors ${active ? 'border-[#3e8d7e] bg-[#bfe0d3] text-[#1e5e55]' : 'border-[#1e2a35]/8 bg-[#fffdf8] text-[#74808a]'}`} animate={{ scale: active ? 1.05 : 1, opacity: active ? 1 : 0.62 }} transition={{ duration: 0.35 }}>{rowIndex === 3 && columnIndex === 2 ? '?' : `${[22, 11, 18, 39, 8, 15, 51, 9, 16, 64, 5, 6][rowIndex * 3 + columnIndex]}`}</motion.span> })}<motion.span className={`flex h-12 items-center justify-center rounded-[8px] border font-mono text-[10px] font-semibold ${row === 'Q' ? 'border-[#d64e3b] bg-[#fbe4dc] text-[#d64e3b]' : 'border-[#1e2a35]/8 bg-[#fffdf8] text-[#b0b5b4]'}`} animate={{ opacity: row === 'Q' ? 1 : phase === 'icl' ? 0.92 : 0.45 }}>{row === 'Q' ? `${Math.round((0.48 + queryWeights[1] * 0.4) * 100)}%` : '—'}</motion.span></div>)}</div><div className="mt-4 flex flex-wrap items-center gap-4 font-mono text-[9px] uppercase tracking-[0.08em] text-[#74808a]"><span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded bg-[#bfe0d3]" /> active route</span><span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded border border-[#d64e3b] bg-[#fbe4dc]" /> predicted target</span></div></div>
-}
-
-function PredictionReadout({ phase }: { phase: AttentionPhase }) {
-  const value = phase === 'column' ? 54 : phase === 'row' ? 61 : phase === 'alternating' ? 65 : 68
-  return <><div className="mt-5 grid gap-3 sm:grid-cols-[1fr_190px] sm:items-center"><div><p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#74808a]">the output cell is still missing</p><p className="mt-2 text-sm leading-6 text-[#53606a]">Attention changes the hidden representation. The final head maps that representation to a probability for the held-out claim label.</p></div><div className="rounded-[12px] border border-[#efb2a2] bg-[#fbe4dc] p-4"><p className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#8a4d43]">P(claim = 1)</p><p className="mt-1 font-serif text-4xl text-[#d64e3b]">{value}%</p><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/70"><motion.div className="h-full rounded-full bg-[#d64e3b]" animate={{ width: `${value}%` }} /></div></div></div><AttentionPipeline phase={phase} /></>
-}
-
-function AttentionPipeline({ phase }: { phase: AttentionPhase }) {
-  const activeStep = phase === 'column' ? 0 : phase === 'row' ? 1 : phase === 'alternating' ? 2 : 3
-  const steps = [
-    ['Q · K', 'similarity scores'],
-    ['softmax', 'attention weights'],
-    ['Σ αV', 'weighted values'],
-    ['head', 'logit / probability'],
+function ArchitectureDiagram({ activeIndex }: { activeIndex: number }) {
+  const stages = [
+    { eyebrow: 'input', title: 'table tokens', note: 'rows + query', icon: <Table2 size={16} />, visual: <InputTable />, active: false },
+    { eyebrow: 'TFcol', title: 'column embedding', note: 'same feature, across rows', icon: <Layers3 size={16} />, visual: <ColumnEmbedding />, active: activeIndex === 0 || activeIndex === 2 },
+    { eyebrow: 'TFrow', title: 'row interaction', note: 'features within a row', icon: <Network size={16} />, visual: <RowInteraction />, active: activeIndex === 1 || activeIndex === 2 },
+    { eyebrow: 'TFicl', title: 'dataset-wise ICL', note: 'context → query', icon: <Layers3 size={16} />, visual: <DatasetICL />, active: activeIndex === 3 },
   ]
-  return <div className="mt-5 rounded-[12px] border border-[#1e2a35]/10 bg-[#f5f2ea] p-4"><div className="grid gap-2 sm:grid-cols-4">{steps.map(([label, text], index) => <motion.div key={label} className={`rounded-[9px] border p-3 ${activeStep === index ? 'border-[#3e8d7e] bg-[#dfeee7]' : 'border-[#1e2a35]/8 bg-[#fffdf8]'}`} animate={{ opacity: activeStep === index ? 1 : 0.58, y: activeStep === index ? -2 : 0 }}><p className="font-mono text-xs font-semibold text-[#1e2a35]">{label}</p><p className="mt-1 text-[10px] leading-4 text-[#74808a]">{text}</p></motion.div>)}</div><p className="mt-4 text-[10px] leading-5 text-[#74808a]"><span className="font-mono uppercase tracking-[0.08em] text-[#3869a8]">mask rule:</span> context labels are visible, the query label stays hidden, and no query token can read the held-out answer.</p></div>
+  return <div className="mt-6 grid min-w-0 items-stretch gap-3 lg:grid-cols-[minmax(0,1.08fr)_auto_minmax(0,1.08fr)_auto_minmax(0,1.08fr)_auto_minmax(0,1.08fr)]">{stages.map((stage, index) => <div key={stage.eyebrow} className="contents"><ArchitectureStage {...stage} />{index < stages.length - 1 && <ArrowRight className="mx-auto self-center rotate-90 text-[#3869a8] lg:rotate-0" size={18} aria-hidden="true" />}</div>)}</div>
+}
+
+function ArchitectureStage({ eyebrow, title, note, icon, visual, active }: { eyebrow: string; title: string; note: string; icon: ReactNode; visual: ReactNode; active: boolean }) {
+  return <motion.div className={`min-w-0 rounded-[11px] border p-3 ${active ? 'border-[#3e8d7e] bg-[#dfeee7]' : 'border-[#1e2a35]/10 bg-[#f5f2ea]'}`} animate={{ y: active ? -3 : 0, opacity: active ? 1 : 0.72 }} transition={{ duration: 0.3 }}><div className="flex items-start gap-2"><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] ${active ? 'bg-[#2f8175] text-[#f5f2ea]' : 'bg-[#fffdf8] text-[#3869a8]'}`}>{icon}</span><div className="min-w-0"><p className="font-mono text-[9px] uppercase tracking-[0.08em] text-[#3869a8]">{eyebrow}</p><p className="mt-1 text-sm font-semibold leading-4">{title}</p><p className="mt-1 text-[10px] leading-4 text-[#74808a]">{note}</p></div></div>{visual}</motion.div>
+}
+
+function InputTable() {
+  const rows = [['A', '22', '11', '18'], ['B', '35', '7', '14'], ['C', '51', '9', '16'], ['Q', '39', '8', '?']]
+  const columnX = [54, 106, 158]
+  const rowY = [42, 76, 110, 144]
+  return <div className="mt-4 overflow-hidden rounded-[7px] bg-[#fffdf8] p-2"><svg className="h-auto w-full" viewBox="0 0 210 170" role="img" aria-label="Table with vertical column-attention arrows between rows and horizontal row-attention arrows between columns"><defs><marker id="input-column-arrow" markerHeight="5" markerWidth="5" orient="auto" refX="4" refY="2.5" viewBox="0 0 5 5"><path d="M0,0 L5,2.5 L0,5 Z" fill="#3869a8" /></marker><marker id="input-row-arrow" markerHeight="5" markerWidth="5" orient="auto" refX="4" refY="2.5" viewBox="0 0 5 5"><path d="M0,0 L5,2.5 L0,5 Z" fill="#2f8175" /></marker></defs><text fill="#74808a" fontFamily="DM Mono, monospace" fontSize="8" textAnchor="middle" x="54" y="15">age</text><text fill="#74808a" fontFamily="DM Mono, monospace" fontSize="8" textAnchor="middle" x="106" y="15">vehicle</text><text fill="#74808a" fontFamily="DM Mono, monospace" fontSize="8" textAnchor="middle" x="158" y="15">miles</text>{rows.map((row, rowIndex) => <g key={row[0]}><text fill={row[0] === 'Q' ? '#d64e3b' : '#74808a'} fontFamily="DM Mono, monospace" fontSize="8" fontWeight="600" textAnchor="middle" x="12" y={rowY[rowIndex] + 5}>{row[0]}</text>{columnX.map((x, columnIndex) => <rect key={`${row[0]}-${columnIndex}`} fill={row[0] === 'Q' ? '#fbe4dc' : '#f5f2ea'} height="24" rx="5" stroke={row[0] === 'Q' ? '#efb2a2' : '#e5e1d7'} width="42" x={x - 21} y={rowY[rowIndex] - 12} />)}{row.slice(1).map((cell, columnIndex) => <text key={`${row[0]}-label-${columnIndex}`} fill={row[0] === 'Q' ? '#d64e3b' : '#53606a'} fontFamily="DM Mono, monospace" fontSize="9" fontWeight={row[0] === 'Q' ? '600' : '400'} textAnchor="middle" x={columnX[columnIndex]} y={rowY[rowIndex] + 4}>{cell}</text>)}</g>)}{columnX.map((x, columnIndex) => <g key={`column-route-${columnIndex}`}><path d={`M${x} 54 V62`} fill="none" markerEnd="url(#input-column-arrow)" stroke="#3869a8" strokeWidth="1.5" /><path d={`M${x} 88 V96`} fill="none" markerEnd="url(#input-column-arrow)" stroke="#3869a8" strokeWidth="1.5" /><path d={`M${x} 122 V130`} fill="none" markerEnd="url(#input-column-arrow)" stroke="#3869a8" strokeWidth="1.5" /></g>)}{rowY.map((y, rowIndex) => <g key={`row-route-${rowIndex}`}><path d={`M76 ${y} H82`} fill="none" markerEnd="url(#input-row-arrow)" stroke="#2f8175" strokeWidth="1.5" /><path d={`M128 ${y} H134`} fill="none" markerEnd="url(#input-row-arrow)" stroke="#2f8175" strokeWidth="1.5" /></g>)}</svg><div className="mt-1 grid gap-1 font-mono text-[8px] leading-4 text-[#74808a] sm:grid-cols-2"><span><span className="font-semibold text-[#3869a8]">down a column:</span> compare rows</span><span><span className="font-semibold text-[#2f8175]">across a row:</span> mix features</span></div></div>
+}
+
+function ColumnEmbedding() {
+  const columns = [['age', '22', '35', '51', 'e₁'], ['vehicle', '11', '7', '9', 'e₂'], ['miles', '18', '14', '16', 'e₃']]
+  return <div className="mt-4 grid grid-cols-3 gap-1">{columns.map((column) => <div key={column[0]} className="min-w-0 text-center font-mono text-[8px]"><span className="block truncate text-[#74808a]">{column[0]}</span>{column.slice(1, 4).map((value) => <span key={value} className="mt-1 block rounded-[4px] bg-[#fffdf8] py-1 text-[#53606a]">{value}</span>)}<span className="mt-1 block rounded-[5px] bg-[#f8edc9] py-1 font-semibold text-[#a36b13]">{column[4]}</span></div>)}</div>
+}
+
+function RowInteraction() {
+  return <div className="mt-4 space-y-1.5 font-mono text-[8px]"><div className="grid grid-cols-[32px_repeat(3,1fr)] gap-1 text-center text-[#74808a]"><span /><span>age</span><span>vehicle</span><span>miles</span></div>{['row A', 'row B', 'query'].map((row, index) => <div key={row} className="grid grid-cols-[32px_repeat(3,1fr)] items-center gap-1"><span className={index === 2 ? 'text-[#d64e3b]' : 'text-[#74808a]'}>{row}</span>{['h₁', 'h₂', 'h₃'].map((value) => <span key={`${row}-${value}`} className={`rounded-[5px] py-1 text-center ${index === 2 ? 'bg-[#fbe4dc] text-[#d64e3b]' : 'bg-[#e4edf8] text-[#3869a8]'}`}>{value}</span>)}</div>)}</div>
+}
+
+function DatasetICL() {
+  return <div className="mt-4 space-y-1.5 font-mono text-[8px]"><div className="flex items-center gap-1.5"><span className="rounded-[5px] bg-[#dfeee7] px-2 py-1 text-[#2f8175]">hA, yA</span><ArrowRight size={11} className="text-[#3869a8]" /><span className="text-[#74808a]">context</span></div><div className="flex items-center gap-1.5"><span className="rounded-[5px] bg-[#dfeee7] px-2 py-1 text-[#2f8175]">hB, yB</span><ArrowRight size={11} className="text-[#3869a8]" /><span className="text-[#74808a]">context</span></div><div className="flex items-center gap-1.5"><span className="rounded-[5px] bg-[#fbe4dc] px-2 py-1 font-semibold text-[#d64e3b]">hQ, ?</span><ArrowRight size={11} className="text-[#d64e3b]" /><span className="rounded-[5px] bg-[#f8edc9] px-2 py-1 font-semibold text-[#a36b13]">P(yQ)</span></div></div>
 }

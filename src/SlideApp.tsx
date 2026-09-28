@@ -76,7 +76,7 @@ export default function SlideApp() {
       <main className="deck-main">
         <AnimatePresence mode="wait">
           <motion.div key={activeSlide.id} className="slide-scroll" initial={{ opacity: 0, x: 22 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={{ duration: 0.28, ease: 'easeOut' }}>
-            {activeSlide.id === 'prompt' && <PromptSlide rows={rows} contextSize={contextSize} setContextSize={setContextSize} probability={probability} showHeldOutAnswer={showHeldOutAnswer} setShowHeldOutAnswer={setShowHeldOutAnswer} goToSlide={goToSlide} />}
+            {activeSlide.id === 'prompt' && <PromptSlide rows={rows} contextSize={contextSize} setContextSize={setContextSize} probability={probability} showHeldOutAnswer={showHeldOutAnswer} setShowHeldOutAnswer={setShowHeldOutAnswer} />}
             {activeSlide.id === 'ppd' && <PosteriorPredictiveSlide />}
             {activeSlide.id === 'prior' && <PriorSlide />}
             {activeSlide.id === 'attention' && <AttentionSlide phase={attentionPhase} setPhase={setAttentionPhase} playing={attentionPlaying} setPlaying={setAttentionPlaying} />}
