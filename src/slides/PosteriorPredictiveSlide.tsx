@@ -40,10 +40,11 @@ export function PosteriorPredictiveSlide() {
           </div>
           <div className="mt-4 rounded-[10px] border border-[#3869a8]/25 bg-[#fffdf8] p-4">
             <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#3869a8]">the PPD equation</p>
-            <p className="mt-2 text-xs leading-5 text-[#53606a]">The crucial distribution for prediction averages the task-specific predictions using the posterior weight of each task:</p>
+            <p className="mt-2 text-xs leading-5 text-[#53606a]">The prediction averages what each rulebook predicts, giving more influence to rulebooks that remain plausible after seeing the observed data:</p>
             <AnnotatedPPDFormula />
           </div>
           <p className="mt-4 border-t border-[#3869a8]/20 pt-4 text-sm leading-6 text-[#53606a]"><span className="font-semibold text-[#3869a8]">Interpretation:</span> the integral carries uncertainty about which hidden rulebook generated the data into the prediction for the new input. A PPD is not one best task; it is the distribution of predictions after averaging over plausible tasks.</p>
+          <p className="mt-3 border-l-2 border-[#d64e3b] pl-3 text-sm leading-6 text-[#53606a]"><span className="font-semibold text-[#d64e3b]">Computational problem:</span> Direct evaluation means calculating predictions across plausible rulebooks and weighting each by its posterior. Because the rulebook space can be vast or continuous, calculating this exact average is often impractical.</p>
         </section>
 
         <section className="mt-6 rounded-[14px] border border-[#a8d2c3] bg-[#dfeee7] p-5" aria-labelledby="pfn-section-title">
@@ -63,6 +64,13 @@ export function PosteriorPredictiveSlide() {
               <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#d64e3b]">Prior-Data Negative Log-Likelihood</p><p className="mt-1 text-lg font-semibold">Train by scoring a hidden answer.</p></div><span className="rounded-full bg-[#fbe4dc] px-3 py-1.5 font-mono text-[10px] font-semibold text-[#d64e3b]">cross-entropy</span></div>
               <p className="mt-3 text-sm leading-6 text-[#53606a]">We sample a dataset from the prior, hold out one labeled pair <InlineMath math={String.raw`(x,y)`} />, and penalize the model when it assigns the true <InlineMath math={String.raw`y`} /> too little probability:</p>
               <ResponsiveMath className="mt-3 rounded-[10px] bg-[#f5f2ea] px-3 py-2" desktop={String.raw`\ell_\theta=\mathbb{E}_{\mathcal{D}\cup\{(x,y)\}\sim p(\mathcal{D})}\left[-\log q_\theta(y\mid x,\mathcal{D})\right]`} mobile={String.raw`\begin{aligned}\ell_\theta&=\mathbb{E}_{\mathcal{D}\cup\{(x,y)\}\sim p(\mathcal{D})}\\&\quad\left[-\log q_\theta(y\mid x,\mathcal{D})\right]\end{aligned}`} />
+              <p className="mt-3 text-xs leading-5 text-[#53606a]">In words, this is the negative log-likelihood of the true label under the model&apos;s predictive distribution <InlineMath math={String.raw`q_\theta(y\mid x,\mathcal{D})`} />, averaged over datasets and new examples drawn from the true data-generating distribution. Each draw means:</p>
+              <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs leading-5 text-[#53606a]">
+                <li>Sample a dataset <InlineMath math={String.raw`\mathcal{D}`} /> from the true distribution.</li>
+                <li>Sample a new point <InlineMath math={String.raw`(x,y)`} /> from that same distribution.</li>
+                <li>Compute the negative log-probability the model assigns to the true label.</li>
+                <li>Average this over all such draws.</li>
+              </ol>
               <p className="mt-3 text-xs leading-5 text-[#74808a]">Repeating this over prior-generated datasets teaches <InlineMath math={String.raw`q_\theta`} /> to assign high probability to the held-out outcomes that the exact PPD would favor.</p>
             </div>
           </div>
@@ -80,7 +88,7 @@ export function PosteriorPredictiveSlide() {
           </div>
         </section>
 
-        <div className="mt-5 border-t border-[#1e2a35]/10 pt-5 text-sm leading-6 text-[#53606a]"><span className="font-semibold text-[#3869a8]">The bridge:</span> Part 1 defines the Bayesian target <InlineMath math={String.raw`p(y\mid x,\mathcal{D})`} />. Part 2 shows how PFNs learn <InlineMath math={String.raw`q_\theta`} /> to approximate it by repeatedly hiding outcomes from prior-generated datasets.</div>
+        <div className="mt-5 border-t border-[#1e2a35]/10 pt-5 text-sm leading-6 text-[#53606a]"><span className="font-semibold text-[#3869a8]">The bridge:</span> Part 1 defines the posterior predictive target <InlineMath math={String.raw`p(y\mid x,\mathcal{D})`} /> by averaging predictions over plausible tasks. Part 2 trains a PFN to approximate it by minimizing the negative log-likelihood of held-out outcomes sampled from prior-generated datasets.</div>
       </div>
     </SlideFrame>
   )
@@ -94,11 +102,19 @@ function AnnotatedPPDFormula() {
       <VariableAnnotation symbol={String.raw`\phi`} label="latent task" description="hidden rulebook / generator" tone="yellow" />
       <VariableAnnotation symbol={String.raw`\mathcal{D}`} label="dataset" description="observed labeled pairs" tone="mint" />
     </div>
-    <ResponsiveMath className="mt-2 rounded-[8px] bg-[#fffdf8] px-2 py-4" desktop={String.raw`p(\color{#d64e3b}{y}\mid\color{#3869a8}{x},\color{#2f8175}{\mathcal{D}})
-        =\int_{\color{#a36b13}{\phi}}p(\color{#d64e3b}{y}\mid\color{#3869a8}{x},\color{#2f8175}{\mathcal{D}},\color{#a36b13}{\phi})\,p(\color{#a36b13}{\phi}\mid\color{#2f8175}{\mathcal{D}})\,d\color{#a36b13}{\phi} \\
-        =\int_{\color{#a36b13}{\phi}}p(\color{#d64e3b}{y}\mid\color{#3869a8}{x},\color{#a36b13}{\phi})\,p(\color{#a36b13}{\phi}\mid\color{#2f8175}{\mathcal{D}})\,d\color{#a36b13}{\phi}`}
-        mobile={String.raw`\begin{aligned}p(\color{#d64e3b}{y}\mid\color{#3869a8}{x},\color{#2f8175}{\mathcal{D}})&=\int_{\color{#a36b13}{\phi}}p(\color{#d64e3b}{y}\mid\color{#3869a8}{x},\color{#a36b13}{\phi})\\&\quad{}\times p(\color{#a36b13}{\phi}\mid\color{#2f8175}{\mathcal{D}})\,d\color{#a36b13}{\phi}\end{aligned}`} />
-    <p className="mt-2 text-center text-[10px] leading-4 text-[#74808a]">Arrows point from each definition to its color-matched variable in the equation.</p>
+    <ResponsiveMath className="mt-2 rounded-[8px] bg-[#fffdf8] px-2 py-4" desktop={String.raw`\begin{gathered}p(\color{#d64e3b}{y}\mid\color{#3869a8}{x},\color{#2f8175}{\mathcal{D}})
+    =\int_{\color{#a36b13}{\phi}}p(\color{#d64e3b}{y}\mid\color{#3869a8}{x},\color{#2f8175}{\mathcal{D}},\color{#a36b13}{\phi})\,p(\color{#a36b13}{\phi}\mid\color{#3869a8}{x},\color{#2f8175}{\mathcal{D}})\,d\color{#a36b13}{\phi}\\
+    =\int_{\color{#a36b13}{\phi}}\underbrace{p(\color{#d64e3b}{y}\mid\color{#3869a8}{x},\color{#a36b13}{\phi})}_{\text{task prediction}}\,\underbrace{p(\color{#a36b13}{\phi}\mid\color{#2f8175}{\mathcal{D}})}_{\substack{\text{plausible rulebook}\\\text{given observed data}}}\,d\color{#a36b13}{\phi}\\[2.5em]
+    =\int_{\color{#a36b13}{\phi}}\underbrace{p(\color{#d64e3b}{y}\mid\color{#3869a8}{x},\color{#a36b13}{\phi})}_{\text{task prediction}}\,\times
+    \frac{\overbrace{p(\color{#2f8175}{\mathcal{D}}\mid\color{#a36b13}{\phi})}^{\text{data likelihood}}\,\overbrace{p(\color{#a36b13}{\phi})}^{\text{prior}}}{\underbrace{p(\color{#2f8175}{\mathcal{D}})}_{\text{evidence}}}\,d\color{#a36b13}{\phi}\end{gathered}`}
+        mobile={String.raw`\begin{aligned}
+    p(\color{#d64e3b}{y}\mid\color{#3869a8}{x},\color{#2f8175}{\mathcal{D}})
+    &=\int_{\color{#a36b13}{\phi}}p(\color{#d64e3b}{y}\mid\color{#3869a8}{x},\color{#2f8175}{\mathcal{D}},\color{#a36b13}{\phi})\\
+    &\quad{}\times p(\color{#a36b13}{\phi}\mid\color{#3869a8}{x},\color{#2f8175}{\mathcal{D}})\,d\color{#a36b13}{\phi}\\
+    &=\int_{\color{#a36b13}{\phi}}\underbrace{p(\color{#d64e3b}{y}\mid\color{#3869a8}{x},\color{#a36b13}{\phi})}_{\text{task prediction}}\\
+    &\quad{}\times\underbrace{p(\color{#a36b13}{\phi}\mid\color{#2f8175}{\mathcal{D}})}_{\substack{\text{plausible rulebook}\\\text{given observed data}}}\,d\color{#a36b13}{\phi}\\[2.5em]
+    &=\int_{\color{#a36b13}{\phi}}\underbrace{p(\color{#d64e3b}{y}\mid\color{#3869a8}{x},\color{#a36b13}{\phi})}_{\text{task prediction}}\\
+    &\quad{}\times\frac{\overbrace{p(\color{#2f8175}{\mathcal{D}}\mid\color{#a36b13}{\phi})}^{\text{likelihood}}\,\overbrace{p(\color{#a36b13}{\phi})}^{\text{prior}}}{\underbrace{p(\color{#2f8175}{\mathcal{D}})}_{\text{evidence}}}\,d\color{#a36b13}{\phi}\end{aligned}`} />
   </div>
 }
 

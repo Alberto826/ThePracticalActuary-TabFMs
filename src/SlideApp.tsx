@@ -30,22 +30,50 @@ const slides: { id: SlideId; number: string; label: string; title: string }[] = 
   { id: 'evidence', number: '08', label: 'Evidence', title: 'Compare the model families' },
 ]
 
+function getSlideIndexFromHash() {
+  if (typeof window === 'undefined') return 0
+  const slideId = window.location.hash.slice(1).replace(/^slide-/, '')
+  const index = slides.findIndex((slide) => slide.id === slideId)
+  return index === -1 ? 0 : index
+}
+
+function getSlideHash(index: number) {
+  return `#slide-${slides[index].id}`
+}
+
 export default function SlideApp() {
   const rows = makeTableRows()
-  const [activeIndex, setActiveIndex] = useState(0)
+  const [activeIndex, setActiveIndex] = useState(getSlideIndexFromHash)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [contextSize, setContextSize] = useState(3)
   const [showHeldOutAnswer, setShowHeldOutAnswer] = useState(false)
-  const [attentionPhase, setAttentionPhase] = useState<AttentionPhase>('column')
+  const [attentionPhase, setAttentionPhase] = useState<AttentionPhase>('input')
   const [attentionPlaying, setAttentionPlaying] = useState(false)
   const [selectedModel, setSelectedModel] = useState<ModelKey>('TabICL')
   const [probabilityMode, setProbabilityMode] = useState<ProbabilityMode>('classification')
 
   const activeSlide = slides[activeIndex]
   const goToSlide = (index: number) => {
-    setActiveIndex(Math.min(slides.length - 1, Math.max(0, index)))
+    const nextIndex = Math.min(slides.length - 1, Math.max(0, index))
+    setActiveIndex(nextIndex)
     setMobileMenuOpen(false)
+    const nextHash = getSlideHash(nextIndex)
+    if (window.location.hash !== nextHash) window.location.hash = nextHash
   }
+
+  useEffect(() => {
+    const syncSlideFromHash = () => {
+      const index = getSlideIndexFromHash()
+      const canonicalHash = getSlideHash(index)
+      if (window.location.hash !== canonicalHash) window.history.replaceState(null, '', canonicalHash)
+      setActiveIndex(index)
+      setMobileMenuOpen(false)
+    }
+
+    syncSlideFromHash()
+    window.addEventListener('hashchange', syncSlideFromHash)
+    return () => window.removeEventListener('hashchange', syncSlideFromHash)
+  }, [])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -61,10 +89,10 @@ export default function SlideApp() {
 
   useEffect(() => {
     if (!attentionPlaying) return
-    const phaseOrder: AttentionPhase[] = ['column', 'row', 'alternating', 'icl']
+    const phaseOrder: AttentionPhase[] = ['input', 'tfcol', 'cell-embeddings', 'tfrow', 'row-embeddings', 'icl', 'contextualized-vectors', 'decode']
     const timer = window.setInterval(() => {
       setAttentionPhase((currentPhase) => phaseOrder[(phaseOrder.indexOf(currentPhase) + 1) % phaseOrder.length])
-    }, 1500)
+    }, 3000)
     return () => window.clearInterval(timer)
   }, [attentionPlaying])
 
@@ -75,7 +103,7 @@ export default function SlideApp() {
       <DeckHeader activeIndex={activeIndex} mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} goToSlide={goToSlide} />
       <main className="deck-main">
         <AnimatePresence mode="wait">
-          <motion.div key={activeSlide.id} className="slide-scroll" initial={{ opacity: 0, x: 22 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={{ duration: 0.28, ease: 'easeOut' }}>
+          <motion.div id={`slide-${activeSlide.id}`} key={activeSlide.id} className="slide-scroll" initial={{ opacity: 0, x: 22 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={{ duration: 0.28, ease: 'easeOut' }}>
             {activeSlide.id === 'prompt' && <PromptSlide rows={rows} contextSize={contextSize} setContextSize={setContextSize} probability={probability} showHeldOutAnswer={showHeldOutAnswer} setShowHeldOutAnswer={setShowHeldOutAnswer} />}
             {activeSlide.id === 'ppd' && <PosteriorPredictiveSlide />}
             {activeSlide.id === 'prior' && <PriorSlide />}
