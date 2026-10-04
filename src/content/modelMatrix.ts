@@ -1,6 +1,9 @@
 export type ModelComparison = {
   model: string
   sourceId: string
+  license: string
+  licenseUrl: string
+  commercialUse: 'Yes' | 'Yes (attribution required)' | 'No (separate license required)'
   family: 'TabPFN' | 'TabICL'
   rowAttention: string
   columnAttention: string
@@ -24,6 +27,9 @@ export const modelMatrix: ModelComparison[] = [
   {
     model: 'TabPFN v1',
     sourceId: 'tabpfn-v1',
+    license: 'Apache-2.0 (repository)',
+    licenseUrl: 'https://github.com/PriorLabs/TabPFN/blob/f02c093c101f80cb4f462f834c22456bbd3c1e84/LICENSE.txt',
+    commercialUse: 'Yes',
     family: 'TabPFN',
     rowAttention: 'Yes: rows are tokens',
     columnAttention: 'Inside row encoder only',
@@ -45,6 +51,9 @@ export const modelMatrix: ModelComparison[] = [
   {
     model: 'Nature / TabPFN v2',
     sourceId: 'tabpfn-nature',
+    license: 'Prior Labs License v1.1',
+    licenseUrl: 'https://huggingface.co/Prior-Labs/TabPFN-v2-clf/blob/main/LICENSE.txt',
+    commercialUse: 'Yes (attribution required)',
     family: 'TabPFN',
     rowAttention: 'Yes: alternating row attention',
     columnAttention: 'Yes: alternating feature attention',
@@ -66,6 +75,9 @@ export const modelMatrix: ModelComparison[] = [
   {
     model: 'TabPFN-2.5',
     sourceId: 'tabpfn-2-5',
+    license: 'TABPFN-2.5 License v1.1',
+    licenseUrl: 'https://huggingface.co/Prior-Labs/tabpfn_2_5/blob/main/LICENSE',
+    commercialUse: 'No (separate license required)',
     family: 'TabPFN',
     rowAttention: 'Yes: alternating row attention',
     columnAttention: 'Yes: grouped feature attention',
@@ -87,6 +99,9 @@ export const modelMatrix: ModelComparison[] = [
   {
     model: 'TabICL',
     sourceId: 'tabicl-v1',
+    license: 'BSD-3-Clause',
+    licenseUrl: 'https://github.com/soda-inria/tabicl/blob/main/LICENSE',
+    commercialUse: 'Yes',
     family: 'TabICL',
     rowAttention: 'Yes: row-wise feature interaction',
     columnAttention: 'Yes: distribution-aware Set Transformer',
@@ -108,6 +123,9 @@ export const modelMatrix: ModelComparison[] = [
   {
     model: 'TabICLv2',
     sourceId: 'tabicl-v2',
+    license: 'BSD-3-Clause',
+    licenseUrl: 'https://github.com/soda-inria/tabicl/blob/main/LICENSE',
+    commercialUse: 'Yes',
     family: 'TabICL',
     rowAttention: 'Yes: TFrow with CLS tokens + RoPE',
     columnAttention: 'Yes: TFcol with induced attention + QASSMax',
@@ -129,6 +147,9 @@ export const modelMatrix: ModelComparison[] = [
   {
     model: 'TabPFN-3',
     sourceId: 'tabpfn-3',
+    license: 'TABPFN-3 License v1.0',
+    licenseUrl: 'https://huggingface.co/Prior-Labs/tabpfn_3/blob/main/LICENSE',
+    commercialUse: 'No (separate license required)',
     family: 'TabPFN',
     rowAttention: 'Yes: row-level ICL after compression',
     columnAttention: 'Yes: inducing feature distribution embedding',

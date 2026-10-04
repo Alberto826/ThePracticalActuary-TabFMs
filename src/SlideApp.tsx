@@ -11,11 +11,11 @@ import { heroProbability, makeTableRows } from './lib/simulations'
 import { ArchitectureSlide, type ModelKey } from './slides/ArchitectureSlide'
 import { AttentionSlide, type AttentionPhase } from './slides/AttentionSlide'
 import { BenchmarkJourneySlide } from './slides/BenchmarkJourneySlide'
-import { EvidenceSlide } from './slides/EvidenceSlide'
-import { ProbabilitySlide, type ProbabilityMode } from './slides/ProbabilitySlide'
+import { ReferenceSlide } from './slides/ReferenceSlide'
 import { PosteriorPredictiveSlide } from './slides/PosteriorPredictiveSlide'
 import { PriorSlide } from './slides/PriorSlide'
 import { PromptSlide } from './slides/PromptSlide'
+import { TutorialSlide } from './slides/TutorialSlide'
 
 type SlideId = 'prompt' | 'ppd' | 'prior' | 'attention' | 'architectures' | 'probability' | 'benchmarks' | 'evidence'
 
@@ -26,8 +26,8 @@ const slides: { id: SlideId; number: string; label: string; title: string }[] = 
   { id: 'prior', number: '04', label: 'The prior', title: 'Before the model sees your table' },
   { id: 'attention', number: '05', label: 'In context', title: 'How attention turns rows into a prediction' },
   { id: 'architectures', number: '06', label: 'Architectures', title: 'The evolution of the table reader' },
-  { id: 'probability', number: '07', label: 'Probability', title: 'The output is a distribution' },
-  { id: 'evidence', number: '08', label: 'Evidence', title: 'Compare the model families' },
+  { id: 'evidence', number: '07', label: 'Reference', title: 'Compare the model families' },
+  { id: 'probability', number: '08', label: 'Tutorial', title: 'Coming Soon' },
 ]
 
 function getSlideIndexFromHash() {
@@ -50,7 +50,6 @@ export default function SlideApp() {
   const [attentionPhase, setAttentionPhase] = useState<AttentionPhase>('input')
   const [attentionPlaying, setAttentionPlaying] = useState(false)
   const [selectedModel, setSelectedModel] = useState<ModelKey>('TabICL')
-  const [probabilityMode, setProbabilityMode] = useState<ProbabilityMode>('classification')
 
   const activeSlide = slides[activeIndex]
   const goToSlide = (index: number) => {
@@ -109,9 +108,9 @@ export default function SlideApp() {
             {activeSlide.id === 'prior' && <PriorSlide />}
             {activeSlide.id === 'attention' && <AttentionSlide phase={attentionPhase} setPhase={setAttentionPhase} playing={attentionPlaying} setPlaying={setAttentionPlaying} />}
             {activeSlide.id === 'architectures' && <ArchitectureSlide model={selectedModel} setModel={setSelectedModel} />}
-            {activeSlide.id === 'probability' && <ProbabilitySlide rows={rows} contextSize={contextSize} mode={probabilityMode} setMode={setProbabilityMode} showHeldOutAnswer={showHeldOutAnswer} setShowHeldOutAnswer={setShowHeldOutAnswer} />}
+            {activeSlide.id === 'evidence' && <ReferenceSlide />}
+            {activeSlide.id === 'probability' && <TutorialSlide />}
             {activeSlide.id === 'benchmarks' && <BenchmarkJourneySlide />}
-            {activeSlide.id === 'evidence' && <EvidenceSlide />}
           </motion.div>
         </AnimatePresence>
       </main>
@@ -126,12 +125,12 @@ function DeckHeader({ activeIndex, mobileMenuOpen, setMobileMenuOpen, goToSlide 
       <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-5 px-5 py-4 lg:px-10">
         <button className="group flex items-center gap-3 text-left" onClick={() => goToSlide(0)} aria-label="Return to slide one">
           <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#1e2a35] text-[#f5f2ea] transition-transform group-hover:-rotate-6"><Table2 size={18} /></span>
-          <span><span className="block font-serif text-lg leading-none">Table Sense</span><span className="mt-1 block font-mono text-[9px] uppercase tracking-[0.18em] text-[#74808a]">a tabular foundation models lab</span></span>
+          <span><span className="block font-serif text-lg leading-none">The Practical Actuary</span><span className="mt-1 block font-mono text-[9px] uppercase tracking-[0.18em] text-[#74808a]">Tabular Foundation Models</span></span>
         </button>
         <nav className="hidden items-center gap-1 xl:flex" aria-label="Slide tabs">
           {slides.map((slide, index) => <button key={slide.id} onClick={() => goToSlide(index)} aria-current={activeIndex === index ? 'step' : undefined} className={`group flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold transition-colors ${activeIndex === index ? 'bg-[#1e2a35] text-[#f5f2ea]' : 'text-[#74808a] hover:bg-[#e7e1d5] hover:text-[#1e2a35]'}`}><span className={`font-mono text-[10px] ${activeIndex === index ? 'text-[#f6c34a]' : 'text-[#a4a9aa]'}`}>{slide.number}</span>{slide.label}</button>)}
         </nav>
-        <div className="flex items-center gap-3"><span className="hidden items-center gap-2 rounded-full border border-[#1e2a35]/10 px-3 py-2 font-mono text-[9px] uppercase tracking-[0.12em] text-[#74808a] sm:flex"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#3e8d7e]" /> browser simulation</span><button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#1e2a35]/15 lg:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label={mobileMenuOpen ? 'Close slide menu' : 'Open slide menu'}>{mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}</button></div>
+        <div className="flex items-center gap-3"><button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#1e2a35]/15 lg:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label={mobileMenuOpen ? 'Close slide menu' : 'Open slide menu'}>{mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}</button></div>
       </div>
       <AnimatePresence>{mobileMenuOpen && <motion.nav className="border-t border-[#1e2a35]/10 px-5 pb-4 lg:hidden" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} aria-label="Mobile slide tabs"><div className="grid gap-1 pt-3">{slides.map((slide, index) => <button key={slide.id} onClick={() => goToSlide(index)} className={`flex items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-semibold ${activeIndex === index ? 'bg-[#1e2a35] text-[#f5f2ea]' : 'text-[#53606a] hover:bg-[#e7e1d5]'}`}><span className="font-mono text-[10px] text-[#d64e3b]">{slide.number}</span>{slide.label}</button>)}</div></motion.nav>}</AnimatePresence>
     </header>

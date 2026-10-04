@@ -222,7 +222,7 @@ function SiteHeader({ activeStep, mobileMenuOpen, setMobileMenuOpen, jumpTo }: {
             <Table2 size={18} strokeWidth={1.8} />
           </span>
           <span>
-            <span className="block font-serif text-lg leading-none">Table Sense</span>
+            <span className="block font-serif text-lg leading-none">The Practical Actuary</span>
             <span className="mt-1 block font-mono text-[9px] uppercase tracking-[0.18em] text-[#74808a]">TFM learning lab</span>
           </span>
         </button>
@@ -239,10 +239,6 @@ function SiteHeader({ activeStep, mobileMenuOpen, setMobileMenuOpen, jumpTo }: {
           ))}
         </nav>
         <div className="flex items-center gap-2">
-          <span className="hidden items-center gap-2 rounded-full border border-[#1e2a35]/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[#74808a] sm:flex">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#3e8d7e]" />
-            browser simulation
-          </span>
           <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#1e2a35]/15 text-[#1e2a35] lg:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label={mobileMenuOpen ? 'Close lesson menu' : 'Open lesson menu'}>
             {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
@@ -523,7 +519,7 @@ function PaperCard({ paper }: { paper: PaperSource }) {
 }
 
 function Footer({ jumpTo }: { jumpTo: (id: string) => void }) {
-  return <footer className="border-t border-[#1e2a35]/10 bg-[#ebe7dc]"><div className="mx-auto flex max-w-[1440px] flex-col justify-between gap-7 px-5 py-10 sm:flex-row sm:items-end lg:px-10"><div><button onClick={() => jumpTo('start')} className="font-serif text-2xl">Table Sense</button><p className="mt-2 max-w-md text-xs leading-5 text-[#74808a]">An educational interface for understanding tabular foundation models. Browser simulations are explanatory, not model checkpoints or actuarial advice.</p></div><div className="text-left sm:text-right"><p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#74808a]">built from the public reading shelf</p><p className="mt-2 font-mono text-[10px] text-[#9aa0a0]">TabPFN / TabICL / 2026-08-01</p></div></div></footer>
+  return <footer className="border-t border-[#1e2a35]/10 bg-[#ebe7dc]"><div className="mx-auto flex max-w-[1440px] flex-col justify-between gap-7 px-5 py-10 sm:flex-row sm:items-end lg:px-10"><div><button onClick={() => jumpTo('start')} className="font-serif text-2xl">The Practical Actuary</button><p className="mt-2 max-w-md text-xs leading-5 text-[#74808a]">An educational interface for understanding tabular foundation models. Browser simulations are explanatory, not model checkpoints or actuarial advice.</p></div><div className="text-left sm:text-right"><p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#74808a]">built from the public reading shelf</p><p className="mt-2 font-mono text-[10px] text-[#9aa0a0]">TabPFN / TabICL / 2026-08-01</p></div></div></footer>
 }
 
 function SectionLabel({ number, kicker, tone, invert = false }: { number: string; kicker: string; tone: Tone; invert?: boolean }) {
